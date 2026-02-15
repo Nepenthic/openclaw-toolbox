@@ -1,0 +1,51 @@
+# --- OpenClaw / local state (do not commit) ---
+# Anything under ~/.openclaw outside workspace is NOT in this repo,
+# but keep these patterns anyway in case paths get copied in.
+.openclaw/
+
+# Secrets / tokens / approvals
+**/exec-approvals.json
+**/*.token
+**/*token*.txt
+**/*secret*
+**/*secrets*
+
+# Environment files (may contain keys)
+.env
+*.env
+
+# Session transcripts / sqlite
+**/*.sqlite
+**/*.sqlite-wal
+**/*.sqlite-shm
+**/*.jsonl
+**/*.jsonl.lock
+
+# Logs
+logs/*.log
+logs/runs/
+**/*.log
+
+# Timecapsule large snapshot outputs
+timecapsule/snapshots/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+
+# Node/Python build artifacts
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+
+# Temp
+*.tmp
+*.bak
+
+# Runtime pid files
+*.pid
+switchboard/data/*.pid

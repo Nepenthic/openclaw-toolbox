@@ -1,0 +1,106 @@
+{
+  "jobs": [
+    {
+      "id": "888c0d0b-a282-4c66-acad-f2d8f55d1f16",
+      "kind": "echo",
+      "input": {
+        "text": "switchboard test"
+      },
+      "requirements": {},
+      "status": "succeeded",
+      "createdAt": "2026-02-11T09:43:47.459Z",
+      "updatedAt": "2026-02-11T09:46:55.192Z",
+      "workerId": "MSI-echo",
+      "startedAt": "2026-02-11T09:46:55.184Z",
+      "finishedAt": "2026-02-11T09:46:55.193Z",
+      "result": {
+        "workerId": "MSI-echo",
+        "ok": true,
+        "output": {
+          "text": "switchboard test"
+        },
+        "error": null
+      }
+    },
+    {
+      "id": "d8c63e3e-30c4-4caf-98f8-6c8b1ba31976",
+      "kind": "echo",
+      "input": {
+        "text": "switchboard test"
+      },
+      "requirements": {},
+      "status": "succeeded",
+      "createdAt": "2026-02-11T09:46:13.104Z",
+      "updatedAt": "2026-02-11T09:46:55.200Z",
+      "workerId": "MSI-echo",
+      "startedAt": "2026-02-11T09:46:55.197Z",
+      "finishedAt": "2026-02-11T09:46:55.200Z",
+      "result": {
+        "workerId": "MSI-echo",
+        "ok": true,
+        "output": {
+          "text": "switchboard test"
+        },
+        "error": null
+      }
+    },
+    {
+      "id": "1c7cdb95-3d8a-43cd-84bb-1e5890c71bbe",
+      "kind": "echo",
+      "input": {
+        "text": "switchboard test"
+      },
+      "requirements": {},
+      "status": "succeeded",
+      "createdAt": "2026-02-11T09:47:27.492Z",
+      "updatedAt": "2026-02-11T09:47:27.953Z",
+      "workerId": "MSI-echo",
+      "startedAt": "2026-02-11T09:47:27.949Z",
+      "finishedAt": "2026-02-11T09:47:27.953Z",
+      "result": {
+        "workerId": "MSI-echo",
+        "ok": true,
+        "output": {
+          "text": "switchboard test"
+        },
+        "error": null
+      }
+    },
+    {
+      "id": "f0680af3-525d-4ad0-be68-6035b6061fc3",
+      "kind": "echo",
+      "input": {
+        "text": "switchboard test"
+      },
+      "requirements": {},
+      "status": "succeeded",
+      "createdAt": "2026-02-11T09:51:02.665Z",
+      "updatedAt": "2026-02-11T09:51:03.046Z",
+      "workerId": "MSI-echo",
+      "startedAt": "2026-02-11T09:51:03.029Z",
+      "finishedAt": "2026-02-11T09:51:03.046Z",
+      "result": {
+        "workerId": "MSI-echo",
+        "ok": true,
+        "output": {
+          "text": "switchboard test"
+        },
+        "error": null
+      }
+    }
+  ],
+  "workers": {
+    "MSI-echo": {
+      "workerId": "MSI-echo",
+      "tags": [
+        "echo",
+        "windows",
+        "msi"
+      ],
+      "meta": {
+        "kind": "echo"
+      },
+      "lastSeenAt": "2026-02-11T09:51:03.029Z"
+    }
+  }
+}
