@@ -1,4 +1,9 @@
 $ErrorActionPreference='SilentlyContinue'
+. "$PSScriptRoot\ops\log.ps1" | Out-Null
+. "$PSScriptRoot\ops\git-info.ps1" | Out-Null
+
+$commit = Get-GitCommitShort
+Write-OpenClawEvent -Message "openclaw-health start commit=$commit" -Level INFO | Out-Null
 
 '=== TIME ==='
 Get-Date -Format o

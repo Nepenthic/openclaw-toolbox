@@ -1,4 +1,9 @@
 $ErrorActionPreference='SilentlyContinue'
+. "$PSScriptRoot\ops\log.ps1" | Out-Null
+. "$PSScriptRoot\ops\git-info.ps1" | Out-Null
+
+$commit = Get-GitCommitShort
+Write-OpenClawEvent -Message "recover-openclaw start commit=$commit" -Level INFO | Out-Null
 
 function Has-Listener18789 {
   try {
@@ -21,7 +26,12 @@ if(-not $before){
 
 # Always attempt node start once (safe even if already running)
 'ACTION: starting node (user-mode)'
-try { openclaw node start | Out-String | Write-Output } catch { "node start failed: $($_.Exception.Message)" }
+try {
+  # Avoid hangs: bound execution time
+  $job = Start-Job -ScriptBlock { openclaw node start | Out-String }
+  if(Wait-Job $job -Timeout 15){ Receive-Job $job | Write-Output } else { 'node start timed out (>15s)' }
+  Remove-Job $job -Force | Out-Null
+} catch { "node start failed: $($_.Exception.Message)" }
 
 Start-Sleep -Seconds 2
 
@@ -33,7 +43,9 @@ try { openclaw nodes status } catch { "nodes status failed: $($_.Exception.Messa
 
 if($after){
   'RESULT: OK'
+  Write-OpenClawEvent -Message "recover-openclaw RESULT=OK commit=$commit" -Level INFO | Out-Null
 } else {
   'RESULT: FAIL'
+  Write-OpenClawEvent -Message "recover-openclaw RESULT=FAIL commit=$commit" -Level ERROR | Out-Null
   exit 2
 }
