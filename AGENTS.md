@@ -128,6 +128,15 @@ Skills provide your tools. When you need one, check its `SKILL.md`. Keep local n
 - **Discord links:** Wrap multiple links in `<>` to suppress embeds: `<https://example.com>`
 - **WhatsApp:** No headers — use **bold** or CAPS for emphasis
 
+## Focus (Deep Work trigger)
+
+**Trigger:** If a task is cognitively demanding and likely to take **>15 minutes**.
+
+**Rule:** Do a **time-blocked deep-work sprint** before anything reactive.
+- Write a 1–2 sentence target outcome.
+- Block **50 minutes** for the task (no inbox/feeds; no “quick checks”).
+- If you need a break, take a **10–15 minute “deep break”** that avoids new obligations, then resume.
+
 ## 💓 Heartbeats - Be Proactive!
 
 When you receive a heartbeat poll (message matches the configured heartbeat prompt), don't just reply `HEARTBEAT_OK` every time. Use heartbeats productively!
