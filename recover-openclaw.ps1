@@ -18,10 +18,23 @@ Get-Date -Format o
 $before = Has-Listener18789
 "LISTENING_BEFORE: $before"
 
+$startedGateway = $false
 if(-not $before){
   'ACTION: starting gateway (user-mode)'
-  try { openclaw gateway start | Out-String | Write-Output } catch { "gateway start failed: $($_.Exception.Message)" }
+  try { openclaw gateway start | Out-String | Write-Output; $startedGateway = $true } catch { "gateway start failed: $($_.Exception.Message)" }
   Start-Sleep -Seconds 2
+}
+
+# If we started the gateway just now, give it time to fully initialize before touching node.
+# Mike note: a longer delay (up to ~4 min) has historically reduced node-start flakiness.
+if($startedGateway){
+  'WAIT: gateway warm-up (max 240s, proceed early if listener is stable)'
+  $stable = 0
+  for($i=0; $i -lt 240; $i+=5){
+    Start-Sleep -Seconds 5
+    if(Has-Listener18789){ $stable++ } else { $stable = 0 }
+    if($stable -ge 3){ break } # 3 consecutive checks (~15s) listening
+  }
 }
 
 # Always attempt node start once (safe even if already running)
@@ -29,7 +42,7 @@ if(-not $before){
 try {
   # Avoid hangs: bound execution time
   $job = Start-Job -ScriptBlock { openclaw node start | Out-String }
-  if(Wait-Job $job -Timeout 15){ Receive-Job $job | Write-Output } else { 'node start timed out (>15s)' }
+  if(Wait-Job $job -Timeout 20){ Receive-Job $job | Write-Output } else { 'node start timed out (>20s)' }
   Remove-Job $job -Force | Out-Null
 } catch { "node start failed: $($_.Exception.Message)" }
 
