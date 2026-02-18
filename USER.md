@@ -6,6 +6,8 @@
 - **What to call them:** Mike
 - **Pronouns:** *(optional)*
 - **Timezone:** America/Chicago
+- **Work schedule:** Mon–Thu, ~3 PM–3 AM (overnights)
+- **Sleep:** ~6 AM–1 PM
 - **Notes:** Primary contact is Discord (nepenthic).
 
 ## Context

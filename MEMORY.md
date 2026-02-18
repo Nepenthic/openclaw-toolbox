@@ -11,6 +11,7 @@
 
 ## Operational Preferences / Guardrails
 - Treat the system as **fresh** after a reinstall + wiped session state.
+- Typical schedule (America/Chicago): works Mon–Thu ~3 PM–3 AM; sleeps ~6 AM–1 PM. Avoid noisy pings during sleep unless urgent.
 - **Do not** auto-switch providers/models mid-run unless Mike explicitly requests it.
 - If something hangs/fails, **surface provider/tool errors** rather than silently retrying.
 
