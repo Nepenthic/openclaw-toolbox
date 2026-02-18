@@ -4,6 +4,9 @@ A short, durable artifact for long-running work.
 
 ## 2026-02-18
 - Other PC (K15 / NucBox_K15) node-only cutover: gateway bind=lan, token persisted, device paired, Scheduled Task running, `nodes.run` verified.
+- Added `ops/find.ps1`: zero-dependency recursive text search (ripgrep-ish) since `rg` isn’t available by default in this environment.
+  - Why: makes it faster to locate config/docs strings during incident response or tool debugging.
+  - Next: if it proves useful, add a short note to regression checklist/runbooks pointing to it.
 
 ## 2026-02-17
 - Cron delivery fixed: moved notification cron jobs to `sessionTarget: isolated` with explicit Discord sends.
