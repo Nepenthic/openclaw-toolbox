@@ -2,6 +2,9 @@
 
 A short, durable artifact for long-running work.
 
+## 2026-02-18
+- Other PC (K15 / NucBox_K15) node-only cutover: gateway bind=lan, token persisted, device paired, Scheduled Task running, `nodes.run` verified.
+
 ## 2026-02-17
 - Cron delivery fixed: moved notification cron jobs to `sessionTarget: isolated` with explicit Discord sends.
 - AI self-improvement digest added (daily 09:00 CST → #ai-only).

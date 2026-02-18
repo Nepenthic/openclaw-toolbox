@@ -1,6 +1,6 @@
 # Kanban — OpenClaw Ops + Builds
 
-Last updated: 2026-02-17
+Last updated: 2026-02-18
 
 ## Backlog
 - Lead pipeline automation redesign (throttled Brave + RSS/non-index sources) and daily drops to `income-leads/DAILY/`.
@@ -8,7 +8,7 @@ Last updated: 2026-02-17
 - Re-run `openclaw security audit` and resolve remaining warnings (e.g., trusted proxies, allowlist schema).
 - Investigate non-interactive CLI hangs (`openclaw status`, `openclaw nodes status`).
 - Build Unity AR puzzle-helper MVP repo skeleton (AR Foundation + CV pipeline stubs).
-- Other PC: convert from second gateway to node-only (wipe-by-rename plan).
+- Other PC (K15): convert from second gateway to node-only (DONE).
 
 ## Next (Ready)
 - Scheduled Tasks: verify existence + correctness of `OpenClaw Gateway` and (re)create/harden `OpenClaw Node` task (targets, battery, restart-on-failure).
