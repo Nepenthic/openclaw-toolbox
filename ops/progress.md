@@ -12,3 +12,4 @@ A short, durable artifact for long-running work.
 
 ### Next
 - Tighten digest throttling: 1–2 second delay between Brave searches.
+- (Done) Updated regression checklist with explicit `web_search` pacing guardrail (1100–1500ms) to reduce 429 risk; next: apply the same pacing inside the daily digest job if it currently loops searches without sleeps.
