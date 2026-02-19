@@ -183,10 +183,21 @@ const openclawStateDir = process.env.OPENCLAW_STATE_DIR
 function runOpenclawJson(args, { timeoutMs = 6000 } = {}) {
   return new Promise((resolve) => {
     const { spawn } = require('node:child_process');
-    const p = spawn('openclaw', args, { windowsHide: true });
+
+    // Windows-friendly: don’t rely on PATH in service-like contexts.
+    const exe = process.env.OPENCLAW_CLI_PATH || 'openclaw';
+
     let out = '';
     let err = '';
     let done = false;
+
+    const p = spawn(exe, args, { windowsHide: true });
+
+    p.on('error', (e) => {
+      if (done) return;
+      done = true;
+      return resolve({ ok: false, error: 'SPAWN_FAILED', message: e.message, code: e.code });
+    });
 
     const t = setTimeout(() => {
       if (done) return;

@@ -11,8 +11,13 @@ $env:CONTROL_CENTER_BIND = $ip
 $env:CONTROL_CENTER_PORT = '3080'
 $env:CONTROL_CENTER_ALLOWED_HOSTS = "localhost,127.0.0.1,$ip"
 
+# Ensure the backend can find OpenClaw CLI even when PATH differs.
+$cli = (Get-Command openclaw -ErrorAction Stop).Source
+$env:OPENCLAW_CLI_PATH = $cli
+
 Write-Host ("Binding Control Center to http://" + $ip + ":" + $env:CONTROL_CENTER_PORT)
 Write-Host "Allowed hosts: $env:CONTROL_CENTER_ALLOWED_HOSTS"
+Write-Host "OpenClaw CLI: $env:OPENCLAW_CLI_PATH"
 
 Set-Location $PSScriptRoot
 node .\src\server.js
