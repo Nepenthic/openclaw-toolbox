@@ -408,6 +408,14 @@ app.get('/api/jobs/:id', async (req, reply) => {
   reply.send({ ok: true, job });
 });
 
+function enqueueJob(req, jobSpec, auditExtra = {}) {
+  const job = jobs.enqueue(jobDirs, jobSpec);
+  audit('jobs.enqueue', req, { ok: true, type: jobSpec.type, jobId: job.id, ...auditExtra });
+  // Best-effort: run worker right away so UI doesn't sit on "pending" until next poll.
+  try { if (workerKick) workerKick(); } catch {}
+  return job;
+}
+
 app.post('/api/unreal/create', async (req, reply) => {
   if (!requireAuth(req, reply)) return;
   const body = req.body || {};
@@ -422,7 +430,7 @@ app.post('/api/unreal/create', async (req, reply) => {
     return reply.code(400).send({ ok: false, error: 'BAD_KIND' });
   }
 
-  const job = jobs.enqueue(jobDirs, {
+  const job = enqueueJob(req, {
     type: 'unreal.create',
     kind,
     name,
@@ -436,12 +444,7 @@ app.post('/api/unreal/create', async (req, reply) => {
     // Where to run this job.
     // If OPENCLAW_NODE_ID is set, the worker will prefer nodes.run.
     nodeId: process.env.OPENCLAW_NODE_ID || undefined,
-  });
-
-  audit('jobs.enqueue', req, { ok: true, type: 'unreal.create', jobId: job.id, name, kind });
-
-  // Best-effort: run worker right away so UI doesn't sit on "pending" until next poll.
-  try { if (workerKick) workerKick(); } catch {}
+  }, { name, kind });
 
   reply.send({ ok: true, job });
 });
