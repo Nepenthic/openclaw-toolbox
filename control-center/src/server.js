@@ -1,5 +1,13 @@
 'use strict';
 
+// Crash visibility: keep the worker + API from dying silently.
+process.on('unhandledRejection', (reason) => {
+  try { console.error('[control-center] unhandledRejection', reason); } catch {}
+});
+process.on('uncaughtException', (err) => {
+  try { console.error('[control-center] uncaughtException', err); } catch {}
+});
+
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
