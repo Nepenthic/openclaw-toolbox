@@ -211,6 +211,40 @@ function requireAuth(req, reply) {
   return true;
 }
 
+function requireSession(req, reply) {
+  const s = getSession(req);
+  if (!s) {
+    audit('auth.required', req, { ok: false });
+    reply.code(401).send({ ok: false, error: 'AUTH_REQUIRED' });
+    return false;
+  }
+  return true;
+}
+
+function tailJsonl(filePath, { maxLines = 200, maxBytes = 256 * 1024 } = {}) {
+  try {
+    if (!fs.existsSync(filePath)) return [];
+    const st = fs.statSync(filePath);
+    const start = Math.max(0, st.size - maxBytes);
+    const buf = Buffer.alloc(st.size - start);
+    const fd = fs.openSync(filePath, 'r');
+    try {
+      fs.readSync(fd, buf, 0, buf.length, start);
+    } finally {
+      try { fs.closeSync(fd); } catch {}
+    }
+
+    const txt = buf.toString('utf8');
+    const lines = txt.trim().split(/\r?\n/).filter(Boolean);
+    const slice = lines.slice(-maxLines);
+    return slice.map((l) => {
+      try { return JSON.parse(l); } catch { return { raw: l }; }
+    });
+  } catch {
+    return [];
+  }
+}
+
 // --- OpenClaw integration (MVP) ---
 // Strategy:
 // - v0 uses file reads for cheap state.
@@ -329,6 +363,14 @@ app.get('/', async (req, reply) => {
 });
 
 app.get('/api/ping', async () => ({ ok: true, ts: Date.now() }));
+
+app.get('/api/audit/tail', async (req, reply) => {
+  if (!requireSession(req, reply)) return;
+  const q = req.query || {};
+  const limit = Math.max(1, Math.min(500, Number(q.limit || 200)));
+  const items = tailJsonl(auditPath, { maxLines: limit });
+  reply.send({ ok: true, items });
+});
 
 // --- Unreal jobs (queued for worker) ---
 app.get('/api/jobs', async (req, reply) => {
