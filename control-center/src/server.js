@@ -332,7 +332,10 @@ app.get('/api/ping', async () => ({ ok: true, ts: Date.now() }));
 
 // --- Unreal jobs (queued for worker) ---
 app.get('/api/jobs', async (req, reply) => {
-  reply.send({ ok: true, jobs: jobs.list(jobDirs, { limit: 50 }) });
+  const q = req.query || {};
+  const limit = Math.max(1, Math.min(200, Number(q.limit || 50)));
+  const status = q.status ? String(q.status) : null; // PENDING|RUNNING|DONE|FAILED
+  reply.send({ ok: true, jobs: jobs.list(jobDirs, { limit, status }) });
 });
 
 app.post('/api/unreal/create', async (req, reply) => {

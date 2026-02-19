@@ -50,17 +50,27 @@ function enqueue(jobDirs, job){
   return payload;
 }
 
-function list(jobDirs, { limit=50 } = {}){
+function list(jobDirs, { limit = 50, status = null } = {}){
   const all = [];
-  for(const dir of [jobDirs.pendingDir, jobDirs.processingDir, jobDirs.doneDir, jobDirs.failedDir]){
-    for(const f of fs.readdirSync(dir)){
-      if(!f.endsWith('.json')) continue;
-      const p = path.join(dir,f);
+
+  const want = status ? String(status).toUpperCase() : null;
+  const dirs = want === 'PENDING' ? [jobDirs.pendingDir]
+    : want === 'RUNNING' ? [jobDirs.processingDir]
+    : want === 'DONE' ? [jobDirs.doneDir]
+    : want === 'FAILED' ? [jobDirs.failedDir]
+    : [jobDirs.pendingDir, jobDirs.processingDir, jobDirs.doneDir, jobDirs.failedDir];
+
+  for (const dir of dirs) {
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.endsWith('.json')) continue;
+      const p = path.join(dir, f);
       const j = readJson(p);
-      if(j) all.push(j);
+      if (j) all.push(j);
     }
   }
-  all.sort((a,b)=> String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+
+  // Default order: newest first.
+  all.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
   return all.slice(0, limit);
 }
 
