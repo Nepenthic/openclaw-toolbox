@@ -1,5 +1,7 @@
 param(
-  [string]$LogPath = 'C:\Users\Nepen\.openclaw\control-center\audit\audit.jsonl',
+  # Default aligns with control-center's server-side audit log location.
+  # (Local, append-only JSONL.)
+  [string]$LogPath = (Join-Path $env:USERPROFILE '.openclaw\control-center\audit.log'),
   [Parameter(Mandatory=$true)][string]$Action,
   [string]$Actor = $env:USERNAME,
   [string]$Target,
@@ -17,7 +19,7 @@ if(!(Test-Path -LiteralPath $dir)){
 
 $evt = [ordered]@{
   ts = (Get-Date).ToString('o')
-  action = $Action
+  event = $Action
   actor = $Actor
   target = $Target
   status = $Status
