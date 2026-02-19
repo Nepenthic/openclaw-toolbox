@@ -445,7 +445,7 @@ async function processOneJob() {
   if (!claimed) return false;
   const job = claimed.job;
 
-  audit('worker.claim', null, { ok: true, jobId: job.id, type: job.type, attempt: job.attempt || 1 });
+  audit('worker.claim', null, { ok: true, jobId: job.id, type: job.type, attempts: job.attempts || 1, nodeId: job.nodeId || null });
 
   try {
     let r = { ok: false, error: 'UNKNOWN_JOB_TYPE' };
