@@ -463,6 +463,9 @@ function startWorkerLoop() {
     if (running) return;
     running = true;
     try {
+      // Recover from worker crashes: move stale RUNNING jobs back to pending.
+      jobs.requeueStale(jobDirs, { staleMs: 10 * 60 * 1000, maxAttempts: 3 });
+
       // Drain a few jobs per tick to reduce latency.
       for (let i = 0; i < 3; i++) {
         const did = await processOneJob();

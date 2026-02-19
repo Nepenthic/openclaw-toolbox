@@ -38,7 +38,7 @@ function init(jobRoot){
 
 function enqueue(jobDirs, job){
   const id = newId();
-  const payload = { ...job, id, createdAt: nowIso(), status: 'PENDING' };
+  const payload = { ...job, id, createdAt: nowIso(), status: 'PENDING', attempts: 0 };
 
   // Write atomically: write to a temp file then rename.
   // This avoids workers reading partially-written JSON.
@@ -96,7 +96,13 @@ function claimNext(jobDirs){
     const to = jobPathFor(jobDirs, 'RUNNING', j.id);
     try {
       fs.renameSync(from, to);
-      const claimed = { ...j, status: 'RUNNING', startedAt: nowIso(), updatedAt: nowIso() };
+      const claimed = {
+        ...j,
+        status: 'RUNNING',
+        attempts: (j.attempts || 0) + 1,
+        startedAt: nowIso(),
+        updatedAt: nowIso(),
+      };
       writeJson(to, claimed);
       return { job: claimed, path: to };
     } catch {
@@ -125,4 +131,49 @@ function finish(jobDirs, job, { ok, output=null, error=null } = {}){
   return finished;
 }
 
-module.exports = { init, enqueue, list, claimNext, finish };
+/**
+ * Requeue stale RUNNING jobs back to pending/.
+ * This recovers from worker crashes.
+ */
+function requeueStale(jobDirs, { staleMs = 10 * 60 * 1000, maxAttempts = 3 } = {}){
+  const now = Date.now();
+  let moved = 0;
+
+  for(const f of fs.readdirSync(jobDirs.processingDir)){
+    if(!f.endsWith('.json')) continue;
+    const p = path.join(jobDirs.processingDir, f);
+    const j = readJson(p);
+    if(!j) continue;
+
+    const startedAt = Date.parse(j.startedAt || '') || 0;
+    if(!startedAt) continue;
+    if((now - startedAt) < staleMs) continue;
+
+    // If it's been retried too many times, fail it instead of looping forever.
+    const attempts = Number(j.attempts || 0);
+    const terminalStatus = attempts >= maxAttempts ? 'FAILED' : 'PENDING';
+    const to = jobPathFor(jobDirs, terminalStatus, j.id);
+
+    const next = {
+      ...j,
+      status: terminalStatus,
+      updatedAt: nowIso(),
+      requeuedAt: nowIso(),
+      result: terminalStatus === 'FAILED'
+        ? { ok: false, output: null, error: 'STALE_RUNNING_MAX_ATTEMPTS' }
+        : j.result,
+    };
+
+    try {
+      writeJson(to, next);
+      fs.unlinkSync(p);
+      moved++;
+    } catch {
+      // best-effort
+    }
+  }
+
+  return moved;
+}
+
+module.exports = { init, enqueue, list, claimNext, finish, requeueStale };
