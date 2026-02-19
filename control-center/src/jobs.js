@@ -142,8 +142,12 @@ function finish(jobDirs, job, { ok, output=null, error=null } = {}){
     result: { ok: !!ok, output, error },
   };
 
-  // Best-effort: write to destination then remove source.
-  writeJsonAtomic(to, finished);
+  // Best-effort: never throw from finish() (worker reliability > perfection).
+  try {
+    writeJsonAtomic(to, finished);
+  } catch {
+    try { writeJson(to, finished); } catch {}
+  }
   try { fs.unlinkSync(from); } catch {}
   return finished;
 }
