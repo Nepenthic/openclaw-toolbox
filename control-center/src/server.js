@@ -397,6 +397,10 @@ app.post('/api/unreal/create', async (req, reply) => {
   });
 
   audit('jobs.enqueue', req, { ok: true, type: 'unreal.create', jobId: job.id, name, kind });
+
+  // Best-effort: run worker right away so UI doesn't sit on "pending" until next poll.
+  try { if (workerKick) workerKick(); } catch {}
+
   reply.send({ ok: true, job });
 });
 
@@ -408,6 +412,10 @@ const workerPollMs = Number(process.env.CONTROL_CENTER_WORKER_POLL_MS || 1500);
 const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || `http://127.0.0.1:${process.env.OPENCLAW_GATEWAY_PORT || 18789}`;
 const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || null;
 const nodesRunPath = process.env.OPENCLAW_NODES_RUN_PATH || '/api/nodes/run';
+
+// Allows API handlers to nudge the worker to run immediately after enqueue.
+// (Otherwise we wait up to workerPollMs.)
+let workerKick = null;
 
 async function nodesRun({ node, command, cwd, env }) {
   if (!gatewayToken) {
@@ -521,8 +529,11 @@ function startWorkerLoop() {
     }
   };
 
+  // Expose a best-effort "kick" for API handlers.
+  workerKick = () => tick().catch((e) => app.log.error(e, 'Worker tick error'));
+
   // Kick once immediately so newly-started workers don't wait a full poll interval.
-  tick().catch((e) => app.log.error(e, 'Worker tick error'));
+  workerKick();
 
   setInterval(() => {
     tick().catch((e) => app.log.error(e, 'Worker tick error'));
