@@ -39,6 +39,10 @@ ensureDir(stateDir);
 
 const secretsPath = path.join(stateDir, 'secrets.json');
 let secrets = readJson(secretsPath);
+
+// Job queue lives under the same control-center state dir
+const jobs = require('./jobs');
+const jobDirs = jobs.init(path.join(stateDir, 'jobs'));
 if (!secrets) {
   secrets = {
     createdAt: new Date().toISOString(),
@@ -287,6 +291,38 @@ app.get('/', async (req, reply) => {
 });
 
 app.get('/api/ping', async () => ({ ok: true, ts: Date.now() }));
+
+// --- Unreal jobs (queued for worker) ---
+app.get('/api/jobs', async (req, reply) => {
+  reply.send({ ok: true, jobs: jobs.list(jobDirs, { limit: 50 }) });
+});
+
+app.post('/api/unreal/create', async (req, reply) => {
+  if (!requireAuth(req, reply)) return;
+  const body = req.body || {};
+  const name = String(body.name || '').trim();
+  const kind = String(body.kind || '').toLowerCase(); // 'bp' or 'cpp'
+  if (!name || !/^[A-Za-z0-9_\-]{2,64}$/.test(name)) {
+    return reply.code(400).send({ ok: false, error: 'BAD_NAME' });
+  }
+  if (!['bp','cpp'].includes(kind)) {
+    return reply.code(400).send({ ok: false, error: 'BAD_KIND' });
+  }
+
+  const job = jobs.enqueue(jobDirs, {
+    type: 'unreal.create',
+    kind,
+    name,
+    // defaults; UI can override later
+    root: 'D:\\UnrealProjects',
+    ueRoot: 'D:\\UE_5.7',
+    templateBp: 'TP_ThirdPersonBP',
+    templateCpp: 'TP_ThirdPerson',
+    launch: true
+  });
+
+  reply.send({ ok: true, job });
+});
 
 async function main() {
   await app.listen({ host: bindHost, port });
