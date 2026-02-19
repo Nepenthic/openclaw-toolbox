@@ -12,6 +12,11 @@ A short, durable artifact for long-running work.
   - Next: consider adding `.editorconfig` to enforce UTF-8 + newline norms repo-wide.
 - Added `.editorconfig` repo-wide (UTF-8, LF by default; CRLF for PowerShell).
   - Why: prevent mojibake and normalize whitespace/newlines across tools/editors.
+- Added `ops/check-encoding.ps1` (non-destructive encoding/line-ending checker) + added it to the regression checklist.
+  - Why: catch mixed CRLF/LF, stray CR, and likely-binary/UTF-16 files early (prevents phantom diffs + mojibake).
+- Regression checklist: added an explicit encoding/newlines hygiene check (ties to `.editorconfig`).
+  - Why: makes “mojibake prevention” a repeatable regression item, not tribal knowledge.
+  - Next: if this catches real drift, add a tiny `ops/check-encoding.ps1` verifier.
 
 ## 2026-02-17
 - Cron delivery fixed: moved notification cron jobs to `sessionTarget: isolated` with explicit Discord sends.
