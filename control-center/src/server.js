@@ -197,6 +197,12 @@ app.get('/api/nodes', async (req, reply) => {
 app.register(fastifyStatic, {
   root: path.join(__dirname, '..', 'ui'),
   prefix: '/',
+  index: ['index.html'],
+});
+
+// Serve SPA entry
+app.get('/', async (req, reply) => {
+  return reply.sendFile('index.html');
 });
 
 app.get('/api/ping', async () => ({ ok: true, ts: Date.now() }));
