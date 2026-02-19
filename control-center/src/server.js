@@ -338,6 +338,26 @@ app.get('/api/jobs', async (req, reply) => {
   reply.send({ ok: true, jobs: jobs.list(jobDirs, { limit, status }) });
 });
 
+app.get('/api/jobs/summary', async (req, reply) => {
+  // Lightweight counts for the UI (avoid listing everything client-side).
+  const countJson = (dir) => {
+    try {
+      return fs.readdirSync(dir).filter(f => f.endsWith('.json')).length;
+    } catch {
+      return 0;
+    }
+  };
+  reply.send({
+    ok: true,
+    counts: {
+      pending: countJson(jobDirs.pendingDir),
+      running: countJson(jobDirs.processingDir),
+      done: countJson(jobDirs.doneDir),
+      failed: countJson(jobDirs.failedDir),
+    },
+  });
+});
+
 app.get('/api/jobs/:id', async (req, reply) => {
   const id = String(req.params.id || '').trim();
   if (!id) return reply.code(400).send({ ok: false, error: 'BAD_ID' });
