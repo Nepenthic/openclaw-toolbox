@@ -18,12 +18,22 @@ function newId(){
   return (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,10));
 }
 
+/**
+ * File-backed job queue.
+ *
+ * Directories:
+ * - pending/: jobs waiting to be claimed
+ * - processing/: jobs claimed by a worker (RUNNING)
+ * - done/: succeeded
+ * - failed/: failed
+ */
 function init(jobRoot){
   const pendingDir = path.join(jobRoot,'pending');
+  const processingDir = path.join(jobRoot,'processing');
   const doneDir = path.join(jobRoot,'done');
   const failedDir = path.join(jobRoot,'failed');
-  ensureDir(pendingDir); ensureDir(doneDir); ensureDir(failedDir);
-  return { pendingDir, doneDir, failedDir };
+  ensureDir(pendingDir); ensureDir(processingDir); ensureDir(doneDir); ensureDir(failedDir);
+  return { pendingDir, processingDir, doneDir, failedDir };
 }
 
 function enqueue(jobDirs, job){
@@ -36,7 +46,7 @@ function enqueue(jobDirs, job){
 
 function list(jobDirs, { limit=50 } = {}){
   const all = [];
-  for(const dir of [jobDirs.pendingDir, jobDirs.doneDir, jobDirs.failedDir]){
+  for(const dir of [jobDirs.pendingDir, jobDirs.processingDir, jobDirs.doneDir, jobDirs.failedDir]){
     for(const f of fs.readdirSync(dir)){
       if(!f.endsWith('.json')) continue;
       const p = path.join(dir,f);
@@ -48,4 +58,65 @@ function list(jobDirs, { limit=50 } = {}){
   return all.slice(0, limit);
 }
 
-module.exports = { init, enqueue, list };
+function listPending(jobDirs){
+  const items = [];
+  for(const f of fs.readdirSync(jobDirs.pendingDir)){
+    if(!f.endsWith('.json')) continue;
+    const p = path.join(jobDirs.pendingDir,f);
+    const j = readJson(p);
+    if(j) items.push(j);
+  }
+  items.sort((a,b)=> String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
+  return items;
+}
+
+function jobPathFor(jobDirs, status, id){
+  const name = id + '.json';
+  if(status === 'PENDING') return path.join(jobDirs.pendingDir, name);
+  if(status === 'RUNNING') return path.join(jobDirs.processingDir, name);
+  if(status === 'DONE') return path.join(jobDirs.doneDir, name);
+  if(status === 'FAILED') return path.join(jobDirs.failedDir, name);
+  return path.join(jobDirs.pendingDir, name);
+}
+
+/**
+ * Atomically claim the next pending job by moving it into processing/.
+ * Returns { job, path } or null.
+ */
+function claimNext(jobDirs){
+  const pending = listPending(jobDirs);
+  for(const j of pending){
+    const from = jobPathFor(jobDirs, 'PENDING', j.id);
+    const to = jobPathFor(jobDirs, 'RUNNING', j.id);
+    try {
+      fs.renameSync(from, to);
+      const claimed = { ...j, status: 'RUNNING', startedAt: nowIso(), updatedAt: nowIso() };
+      writeJson(to, claimed);
+      return { job: claimed, path: to };
+    } catch {
+      // Someone else claimed it; try next.
+    }
+  }
+  return null;
+}
+
+function finish(jobDirs, job, { ok, output=null, error=null } = {}){
+  const from = jobPathFor(jobDirs, 'RUNNING', job.id);
+  const status = ok ? 'DONE' : 'FAILED';
+  const to = jobPathFor(jobDirs, status, job.id);
+
+  const finished = {
+    ...job,
+    status,
+    updatedAt: nowIso(),
+    finishedAt: nowIso(),
+    result: { ok: !!ok, output, error },
+  };
+
+  // Best-effort: write to destination then remove source.
+  writeJson(to, finished);
+  try { fs.unlinkSync(from); } catch {}
+  return finished;
+}
+
+module.exports = { init, enqueue, list, claimNext, finish };

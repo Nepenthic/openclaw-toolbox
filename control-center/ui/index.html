@@ -148,9 +148,13 @@
   </div>
 
   <div class="card" id="jobs">
-    <h2>Jobs (queue)</h2>
-    <button onclick="loadJobs()">Refresh jobs</button>
-    <pre id="jobsOut"></pre>
+    <h2>Jobs</h2>
+    <div class="row">
+      <button onclick="loadJobs()">Refresh</button>
+      <span class="muted">Auto-refresh: <span id="jobsAutoOn">on</span></span>
+    </div>
+    <div id="jobsPanel"></div>
+    <pre id="jobsOut" style="display:none"></pre>
   </div>
 
   <div class="card">
@@ -164,6 +168,7 @@ const REFRESH_EVERY_MS = 5000;
 let autoRefresh = true;
 let nodesTimer = null;
 let pendingTimer = null;
+let jobsTimer = null;
 
 function setPill(elId, variant, text){
   const el = document.getElementById(elId);
@@ -364,19 +369,24 @@ function startTimers(){
   if(autoRefresh){
     nodesTimer = setInterval(() => loadNodesLive().catch(()=>{}), REFRESH_EVERY_MS);
     pendingTimer = setInterval(() => loadPending().catch(()=>{}), REFRESH_EVERY_MS);
+    jobsTimer = setInterval(() => loadJobs().catch(()=>{}), REFRESH_EVERY_MS);
   }
 }
 
 function stopTimers(){
   if(nodesTimer) clearInterval(nodesTimer);
   if(pendingTimer) clearInterval(pendingTimer);
+  if(jobsTimer) clearInterval(jobsTimer);
   nodesTimer = null;
   pendingTimer = null;
+  jobsTimer = null;
 }
 
 function toggleAutoRefresh(){
   autoRefresh = !autoRefresh;
   document.getElementById('autoOn').textContent = autoRefresh ? 'on' : 'off';
+  const ja = document.getElementById('jobsAutoOn');
+  if(ja) ja.textContent = autoRefresh ? 'on' : 'off';
   startTimers();
 }
 
@@ -385,9 +395,94 @@ async function loadState(){
   document.getElementById('stateOut').textContent = JSON.stringify(r, null, 2);
 }
 
+function jobPill(status){
+  const s = String(status || '').toUpperCase();
+  if(s === 'DONE' || s === 'SUCCEEDED') return { cls: 'good', label: 'DONE' };
+  if(s === 'FAILED') return { cls: 'bad', label: 'FAILED' };
+  if(s === 'RUNNING' || s === 'PROCESSING') return { cls: 'warn', label: 'RUNNING' };
+  return { cls: 'warn', label: 'PENDING' };
+}
+
+function renderJobs(items){
+  const el = document.getElementById('jobsPanel');
+  if(!el) return;
+  if(!items.length){
+    el.innerHTML = '<div class="muted">No jobs yet.</div>';
+    return;
+  }
+
+  // Group by status (pending/running first)
+  const order = { 'PENDING': 0, 'RUNNING': 1, 'DONE': 2, 'FAILED': 3 };
+  const normStatus = (j) => {
+    const s = String(j.status || '').toUpperCase();
+    if(s === 'DONE' || s === 'SUCCEEDED') return 'DONE';
+    if(s === 'FAILED') return 'FAILED';
+    if(s === 'RUNNING' || s === 'PROCESSING') return 'RUNNING';
+    return 'PENDING';
+  };
+
+  const jobs = items.slice().sort((a,b) => {
+    const sa = normStatus(a), sb = normStatus(b);
+    if(order[sa] !== order[sb]) return order[sa] - order[sb];
+    return String(b.createdAt||'').localeCompare(String(a.createdAt||''));
+  });
+
+  const counts = { PENDING:0, RUNNING:0, DONE:0, FAILED:0 };
+  for(const j of jobs) counts[normStatus(j)]++;
+
+  const head = `
+    <div class="row tight" style="margin-bottom:10px">
+      <span class="pill warn"><span class="dot"></span><span class="code">PENDING ${counts.PENDING}</span></span>
+      <span class="pill warn"><span class="dot"></span><span class="code">RUNNING ${counts.RUNNING}</span></span>
+      <span class="pill good"><span class="dot"></span><span class="code">DONE ${counts.DONE}</span></span>
+      <span class="pill bad"><span class="dot"></span><span class="code">FAILED ${counts.FAILED}</span></span>
+    </div>
+  `;
+
+  const cards = jobs.map(j => {
+    const p = jobPill(j.status);
+    const title = esc(`${j.type || j.kind || 'job'}`);
+    const id = esc(j.id || '');
+    const name = esc(j.name || j.input?.name || '');
+    const kind = esc(j.kind || j.input?.kind || '');
+    const nodeId = esc(j.nodeId || j.workerId || '');
+
+    const err = j.result?.error ? esc(String(j.result.error)) : '';
+    const out = j.result?.output ? esc(JSON.stringify(j.result.output, null, 2)) : '';
+
+    return `
+      <div class="nodeCard" style="grid-column:span 12">
+        <div class="nodeHead">
+          <div>
+            <div class="nodeTitle">${title}${name ? ' · ' + name : ''}${kind ? ' · ' + kind : ''}</div>
+            <div class="muted code">${id}</div>
+          </div>
+          <div class="row tight" style="justify-content:flex-end">
+            <span class="pill ${p.cls}"><span class="dot"></span><span class="code">${p.label}</span></span>
+          </div>
+        </div>
+
+        <div class="nodeMeta">
+          <div class="k">Created</div><div class="v">${esc(j.createdAt || '')}</div>
+          <div class="k">Started</div><div class="v">${esc(j.startedAt || '')}</div>
+          <div class="k">Finished</div><div class="v">${esc(j.finishedAt || '')}</div>
+          <div class="k">Node/Worker</div><div class="v code">${nodeId || '—'}</div>
+        </div>
+
+        ${err ? `<div class="banner bad" style="margin-top:10px"><strong>Error:</strong> <span class="code">${err}</span></div>` : ''}
+        ${out ? `<details style="margin-top:10px"><summary>Output</summary><pre>${out}</pre></details>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  el.innerHTML = head + `<div class="nodesGrid">${cards}</div>`;
+}
+
 async function loadJobs(){
   const r = await j('/api/jobs');
   document.getElementById('jobsOut').textContent = JSON.stringify(r, null, 2);
+  const items = r.ok ? (r.data?.jobs || []) : [];
+  renderJobs(items);
 }
 
 async function createProj(kind){
@@ -481,10 +576,13 @@ setInterval(() => {
 
 // Initial
 document.getElementById('refreshEvery').textContent = String(Math.round(REFRESH_EVERY_MS/1000));
+const ja = document.getElementById('jobsAutoOn');
+if(ja) ja.textContent = autoRefresh ? 'on' : 'off';
 startTimers();
 // Load once immediately
 loadNodesLive().catch(()=>{});
 loadPending().catch(()=>{});
+loadJobs().catch(()=>{});
 </script>
 </body>
 </html>
