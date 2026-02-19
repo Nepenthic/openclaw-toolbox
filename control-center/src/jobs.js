@@ -193,4 +193,15 @@ function requeueStale(jobDirs, { staleMs = 10 * 60 * 1000, maxAttempts = 3 } = {
   return moved;
 }
 
-module.exports = { init, enqueue, list, claimNext, finish, requeueStale };
+function get(jobDirs, id){
+  const dirs = [jobDirs.pendingDir, jobDirs.processingDir, jobDirs.doneDir, jobDirs.failedDir];
+  for (const dir of dirs) {
+    const p = path.join(dir, id + '.json');
+    if (!fs.existsSync(p)) continue;
+    const j = readJson(p);
+    if (j) return j;
+  }
+  return null;
+}
+
+module.exports = { init, enqueue, list, get, claimNext, finish, requeueStale };

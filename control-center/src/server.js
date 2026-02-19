@@ -338,6 +338,14 @@ app.get('/api/jobs', async (req, reply) => {
   reply.send({ ok: true, jobs: jobs.list(jobDirs, { limit, status }) });
 });
 
+app.get('/api/jobs/:id', async (req, reply) => {
+  const id = String(req.params.id || '').trim();
+  if (!id) return reply.code(400).send({ ok: false, error: 'BAD_ID' });
+  const job = jobs.get(jobDirs, id);
+  if (!job) return reply.code(404).send({ ok: false, error: 'NOT_FOUND' });
+  reply.send({ ok: true, job });
+});
+
 app.post('/api/unreal/create', async (req, reply) => {
   if (!requireAuth(req, reply)) return;
   const body = req.body || {};
