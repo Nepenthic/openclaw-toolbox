@@ -233,6 +233,36 @@ app.get('/api/nodes/live', async (req, reply) => {
   reply.send(r);
 });
 
+// --- Approvals (device pairing) ---
+app.get('/api/devices/pending', async (req, reply) => {
+  const pending = readJson(path.join(openclawStateDir, 'devices', 'pending.json'), {});
+  // Return a stable array for UI.
+  const items = Object.values(pending).map(r => ({
+    requestId: r.requestId,
+    deviceId: r.deviceId,
+    displayName: r.displayName,
+    platform: r.platform,
+    remoteIp: r.remoteIp,
+    role: r.role,
+    ts: r.ts,
+  })).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  reply.send({ ok: true, items });
+});
+
+app.post('/api/devices/:requestId/approve', async (req, reply) => {
+  if (!requireAuth(req, reply)) return;
+  const requestId = req.params.requestId;
+  const r = await runOpenclawJson(['devices', 'approve', requestId, '--json'], { timeoutMs: 8000 });
+  reply.send(r);
+});
+
+app.post('/api/devices/:requestId/reject', async (req, reply) => {
+  if (!requireAuth(req, reply)) return;
+  const requestId = req.params.requestId;
+  const r = await runOpenclawJson(['devices', 'reject', requestId, '--json'], { timeoutMs: 8000 });
+  reply.send(r);
+});
+
 // --- Static UI (very minimal) ---
 app.register(fastifyStatic, {
   root: path.join(__dirname, '..', 'ui'),

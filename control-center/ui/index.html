@@ -53,6 +53,15 @@
     <pre id="nodesOut"></pre>
   </div>
 
+  <div class="card" id="approvals">
+    <h2>Approvals: Device Pairing</h2>
+    <div class="row">
+      <button onclick="loadPending()">Refresh pending</button>
+      <span class="muted">Approve/reject requires login.</span>
+    </div>
+    <pre id="pendingOut"></pre>
+  </div>
+
   <div class="card">
     <h2>OpenClaw state (devices)</h2>
     <button onclick="loadState()">Load state</button>
@@ -106,6 +115,23 @@ async function login(){
 async function logout(){
   const r = await j('/api/logout', { method:'POST' });
   document.getElementById('loginStatus').textContent = r.ok ? 'Logged out.' : ('Logout error: ' + JSON.stringify(r.data));
+}
+
+async function loadPending(){
+  const r = await j('/api/devices/pending');
+  document.getElementById('pendingOut').textContent = JSON.stringify(r, null, 2);
+}
+
+async function approve(requestId){
+  const r = await j(`/api/devices/${requestId}/approve`, { method:'POST', body: '{}' });
+  await loadPending();
+  alert(JSON.stringify(r.data));
+}
+
+async function reject(requestId){
+  const r = await j(`/api/devices/${requestId}/reject`, { method:'POST', body: '{}' });
+  await loadPending();
+  alert(JSON.stringify(r.data));
 }
 </script>
 </body>
