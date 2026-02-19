@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>OpenClaw Control Center</title>
+  <title>ClawForge</title>
   <style>
     body{font-family:system-ui,Segoe UI,Arial;max-width:980px;margin:24px auto;padding:0 16px;background:#0b0f14;color:#e7eef7}
     a{color:#8bd5ff}
@@ -16,8 +16,17 @@
   </style>
 </head>
 <body>
-  <h1>OpenClaw Control Center (LAN MVP)</h1>
-  <div class="muted">v0: read-only status + login skeleton. Next: live gateway adapter, Unreal job runner, approvals UI.</div>
+  <h1>ClawForge (LAN)</h1>
+  <div class="muted">Ops + Unreal control center. This is an MVP; we’ll iterate fast.</div>
+
+  <div class="card">
+    <div class="row">
+      <strong>Nav:</strong>
+      <a href="#ops">Ops</a>
+      <a href="#unreal">Unreal</a>
+      <a href="#approvals">Approvals</a>
+    </div>
+  </div>
 
   <div class="card">
     <h2>Login</h2>
@@ -35,9 +44,12 @@
     <pre id="pingOut"></pre>
   </div>
 
-  <div class="card">
-    <h2>Nodes (v0)</h2>
-    <button onclick="loadNodes()">Load nodes</button>
+  <div class="card" id="ops">
+    <h2>Nodes</h2>
+    <div class="row">
+      <button onclick="loadNodesLive()">Refresh (live)</button>
+      <span class="muted">Auto-refresh: <span id="autoOn">on</span></span>
+    </div>
     <pre id="nodesOut"></pre>
   </div>
 
@@ -69,6 +81,16 @@ async function loadNodes(){
   const r = await j('/api/nodes');
   document.getElementById('nodesOut').textContent = JSON.stringify(r, null, 2);
 }
+
+async function loadNodesLive(){
+  const r = await j('/api/nodes/live');
+  document.getElementById('nodesOut').textContent = JSON.stringify(r, null, 2);
+}
+
+// Auto-refresh nodes
+setInterval(() => {
+  loadNodesLive().catch(() => {});
+}, 5000);
 
 async function loadState(){
   const r = await j('/api/openclaw/state');

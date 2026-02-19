@@ -172,11 +172,46 @@ function requireAuth(req, reply) {
 }
 
 // --- OpenClaw integration (MVP) ---
-// v0: return “what we can read safely without hanging the CLI”.
-// We will add a proper gateway WS adapter next.
+// Strategy:
+// - v0 uses file reads for cheap state.
+// - “live” endpoints shell out to `openclaw ... --json` with a hard timeout.
+//   If it hangs, we return a clear error instead of blocking the UI.
 const openclawStateDir = process.env.OPENCLAW_STATE_DIR
   ? path.resolve(process.env.OPENCLAW_STATE_DIR)
   : path.join(os.homedir(), '.openclaw');
+
+function runOpenclawJson(args, { timeoutMs = 6000 } = {}) {
+  return new Promise((resolve) => {
+    const { spawn } = require('node:child_process');
+    const p = spawn('openclaw', args, { windowsHide: true });
+    let out = '';
+    let err = '';
+    let done = false;
+
+    const t = setTimeout(() => {
+      if (done) return;
+      done = true;
+      try { p.kill('SIGKILL'); } catch {}
+      return resolve({ ok: false, error: 'TIMEOUT', timeoutMs });
+    }, timeoutMs);
+
+    p.stdout.on('data', (d) => { out += d.toString('utf8'); });
+    p.stderr.on('data', (d) => { err += d.toString('utf8'); });
+
+    p.on('exit', (code) => {
+      if (done) return;
+      done = true;
+      clearTimeout(t);
+      const txt = (out + '\n' + err).trim();
+      try {
+        const json = JSON.parse(txt);
+        return resolve({ ok: code === 0, code, json });
+      } catch {
+        return resolve({ ok: false, code, error: 'NON_JSON', text: txt.slice(0, 4000) });
+      }
+    });
+  });
+}
 
 app.get('/api/openclaw/state', async (req, reply) => {
   const paired = readJson(path.join(openclawStateDir, 'devices', 'paired.json'), {});
@@ -185,12 +220,17 @@ app.get('/api/openclaw/state', async (req, reply) => {
 });
 
 app.get('/api/nodes', async (req, reply) => {
-  // Placeholder until gateway adapter: provide last-known from paired devices.
+  // Cheap last-known from paired devices.
   const paired = readJson(path.join(openclawStateDir, 'devices', 'paired.json'), {});
   const nodes = Object.values(paired)
     .filter(d => Array.isArray(d.roles) && d.roles.includes('node'))
     .map(d => ({ deviceId: d.deviceId, displayName: d.displayName || d.deviceId.slice(0, 8), platform: d.platform, roles: d.roles }));
-  reply.send({ ok: true, nodes, note: 'v0: nodes list is derived from devices/paired.json (last-known). Live status via gateway WS adapter is next.' });
+  reply.send({ ok: true, nodes, mode: 'file', note: 'Derived from devices/paired.json (last-known).' });
+});
+
+app.get('/api/nodes/live', async (req, reply) => {
+  const r = await runOpenclawJson(['nodes', 'status', '--json'], { timeoutMs: 6000 });
+  reply.send(r);
 });
 
 // --- Static UI (very minimal) ---
