@@ -145,7 +145,14 @@ function requeueStale(jobDirs, { staleMs = 10 * 60 * 1000, maxAttempts = 3 } = {
     const j = readJson(p);
     if(!j) continue;
 
-    const startedAt = Date.parse(j.startedAt || '') || 0;
+    // Some crash windows can leave jobs in processing/ without startedAt.
+    // In that case, fall back to updatedAt/createdAt, then file mtime.
+    let startedAt = Date.parse(j.startedAt || '') || 0;
+    if(!startedAt) startedAt = Date.parse(j.updatedAt || '') || 0;
+    if(!startedAt) startedAt = Date.parse(j.createdAt || '') || 0;
+    if(!startedAt) {
+      try { startedAt = fs.statSync(p).mtimeMs; } catch { startedAt = 0; }
+    }
     if(!startedAt) continue;
     if((now - startedAt) < staleMs) continue;
 
