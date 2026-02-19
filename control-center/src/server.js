@@ -190,11 +190,13 @@ app.post('/api/logout', async (req, reply) => {
 function requireAuth(req, reply) {
   const s = getSession(req);
   if (!s) {
+    audit('auth.required', req, { ok: false });
     reply.code(401).send({ ok: false, error: 'AUTH_REQUIRED' });
     return false;
   }
   // CSRF-lite: require Origin on all state-changing routes.
   if (!originOk(req)) {
+    audit('auth.required', req, { ok: false, error: 'ORIGIN_DENIED' });
     reply.code(403).send({ ok: false, error: 'ORIGIN_DENIED' });
     return false;
   }
