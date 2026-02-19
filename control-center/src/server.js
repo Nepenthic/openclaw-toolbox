@@ -445,15 +445,21 @@ async function processOneJob() {
   if (!claimed) return false;
   const job = claimed.job;
 
+  audit('worker.claim', null, { ok: true, jobId: job.id, type: job.type, attempt: job.attempt || 1 });
+
   try {
     let r = { ok: false, error: 'UNKNOWN_JOB_TYPE' };
     if (job.type === 'unreal.create') {
       r = await runUnrealCreate(job);
     }
 
-    jobs.finish(jobDirs, job, { ok: !!r.ok, output: r.output || null, error: r.ok ? null : (r.error || 'FAILED') });
+    const fin = { ok: !!r.ok, output: r.output || null, error: r.ok ? null : (r.error || 'FAILED') };
+    jobs.finish(jobDirs, job, fin);
+    audit('worker.finish', null, { ok: fin.ok, jobId: job.id, type: job.type, error: fin.error });
   } catch (e) {
-    jobs.finish(jobDirs, job, { ok: false, error: e?.message || String(e) });
+    const fin = { ok: false, error: e?.message || String(e) };
+    jobs.finish(jobDirs, job, fin);
+    audit('worker.finish', null, { ok: false, jobId: job.id, type: job.type, error: fin.error });
   }
   return true;
 }
