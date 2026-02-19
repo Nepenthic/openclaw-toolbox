@@ -453,6 +453,7 @@ app.post('/api/unreal/create', async (req, reply) => {
 // This avoids relying on `openclaw ...` CLI, and instead prefers calling the Gateway directly.
 const workerEnabled = (process.env.CONTROL_CENTER_WORKER_ENABLED || '1') !== '0';
 const workerPollMs = Number(process.env.CONTROL_CENTER_WORKER_POLL_MS || 1500);
+const workerDrainPerTick = Math.max(1, Math.min(50, Number(process.env.CONTROL_CENTER_WORKER_DRAIN_PER_TICK || 10)));
 
 const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || `http://127.0.0.1:${process.env.OPENCLAW_GATEWAY_PORT || 18789}`;
 const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || null;
@@ -554,7 +555,7 @@ function startWorkerLoop() {
     return;
   }
 
-  app.log.info({ workerPollMs, gatewayUrl, nodesRunPath, hasGatewayToken: !!gatewayToken }, 'Worker loop starting');
+  app.log.info({ workerPollMs, workerDrainPerTick, gatewayUrl, nodesRunPath, hasGatewayToken: !!gatewayToken }, 'Worker loop starting');
 
   let running = false;
   const tick = async () => {
@@ -565,7 +566,7 @@ function startWorkerLoop() {
       jobs.requeueStale(jobDirs, { staleMs: 10 * 60 * 1000, maxAttempts: 3 });
 
       // Drain a few jobs per tick to reduce latency.
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < workerDrainPerTick; i++) {
         const did = await processOneJob();
         if (!did) break;
       }
