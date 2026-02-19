@@ -456,13 +456,23 @@ function startWorkerLoop() {
 
   app.log.info({ workerPollMs, gatewayUrl, nodesRunPath, hasGatewayToken: !!gatewayToken }, 'Worker loop starting');
 
+  let running = false;
   const tick = async () => {
-    // Drain a few jobs per tick to reduce latency.
-    for (let i = 0; i < 3; i++) {
-      const did = await processOneJob();
-      if (!did) break;
+    if (running) return;
+    running = true;
+    try {
+      // Drain a few jobs per tick to reduce latency.
+      for (let i = 0; i < 3; i++) {
+        const did = await processOneJob();
+        if (!did) break;
+      }
+    } finally {
+      running = false;
     }
   };
+
+  // Kick once immediately so newly-started workers don't wait a full poll interval.
+  tick().catch((e) => app.log.error(e, 'Worker tick error'));
 
   setInterval(() => {
     tick().catch((e) => app.log.error(e, 'Worker tick error'));
