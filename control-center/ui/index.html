@@ -59,7 +59,12 @@
       <button onclick="loadPending()">Refresh pending</button>
       <span class="muted">Approve/reject requires login.</span>
     </div>
-    <pre id="pendingOut"></pre>
+    <div class="row">
+      <span class="muted">Pending:</span>
+      <span id="pendingCount" class="muted">0</span>
+    </div>
+    <div id="pendingTable"></div>
+    <pre id="pendingOut" style="display:none"></pre>
   </div>
 
   <div class="card">
@@ -117,22 +122,62 @@ async function logout(){
   document.getElementById('loginStatus').textContent = r.ok ? 'Logged out.' : ('Logout error: ' + JSON.stringify(r.data));
 }
 
+function esc(s){
+  return String(s ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+}
+
+function renderPending(items){
+  const el = document.getElementById('pendingTable');
+  document.getElementById('pendingCount').textContent = String(items.length);
+  if(!items.length){
+    el.innerHTML = '<div class="muted">No pending device pairing requests.</div>';
+    return;
+  }
+  const rows = items.map(it => {
+    const rid = esc(it.requestId);
+    const name = esc(it.displayName || it.deviceId);
+    const ip = esc(it.remoteIp || '');
+    const platform = esc(it.platform || '');
+    return `
+      <div class="card" style="margin:10px 0">
+        <div><strong>${name}</strong> <span class="muted">(${platform})</span></div>
+        <div class="muted">requestId: ${rid}</div>
+        <div class="muted">ip: ${ip}</div>
+        <div class="row" style="margin-top:8px">
+          <button onclick="approve('${rid}')">Approve</button>
+          <button onclick="reject('${rid}')">Reject</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  el.innerHTML = rows;
+}
+
 async function loadPending(){
   const r = await j('/api/devices/pending');
-  document.getElementById('pendingOut').textContent = JSON.stringify(r, null, 2);
+  if(r.ok && r.data && r.data.items){
+    renderPending(r.data.items);
+  } else {
+    document.getElementById('pendingTable').innerHTML = '<div class="muted">Error loading pending: ' + esc(JSON.stringify(r.data)) + '</div>';
+  }
 }
 
 async function approve(requestId){
   const r = await j(`/api/devices/${requestId}/approve`, { method:'POST', body: '{}' });
   await loadPending();
-  alert(JSON.stringify(r.data));
+  if(!r.ok){ alert('Approve failed: ' + JSON.stringify(r.data)); }
 }
 
 async function reject(requestId){
   const r = await j(`/api/devices/${requestId}/reject`, { method:'POST', body: '{}' });
   await loadPending();
-  alert(JSON.stringify(r.data));
+  if(!r.ok){ alert('Reject failed: ' + JSON.stringify(r.data)); }
 }
+
+// Auto-refresh pending approvals
+setInterval(() => {
+  loadPending().catch(() => {});
+}, 5000);
 </script>
 </body>
 </html>
