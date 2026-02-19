@@ -11,6 +11,13 @@ function readJson(p, fallback=null){
 
 function writeJson(p, obj){ fs.writeFileSync(p, JSON.stringify(obj,null,2), 'utf8'); }
 
+function writeJsonAtomic(p, obj){
+  // Atomic-ish on the same volume: write temp then rename.
+  const tmp = p + '.tmp';
+  writeJson(tmp, obj);
+  fs.renameSync(tmp, p);
+}
+
 function nowIso(){ return new Date().toISOString(); }
 
 function newId(){
@@ -113,7 +120,7 @@ function claimNext(jobDirs){
         startedAt: nowIso(),
         updatedAt: nowIso(),
       };
-      writeJson(to, claimed);
+      writeJsonAtomic(to, claimed);
       return { job: claimed, path: to };
     } catch {
       // Someone else claimed it; try next.
@@ -136,7 +143,7 @@ function finish(jobDirs, job, { ok, output=null, error=null } = {}){
   };
 
   // Best-effort: write to destination then remove source.
-  writeJson(to, finished);
+  writeJsonAtomic(to, finished);
   try { fs.unlinkSync(from); } catch {}
   return finished;
 }
@@ -182,7 +189,7 @@ function requeueStale(jobDirs, { staleMs = 10 * 60 * 1000, maxAttempts = 3 } = {
     };
 
     try {
-      writeJson(to, next);
+      writeJsonAtomic(to, next);
       fs.unlinkSync(p);
       moved++;
     } catch {
