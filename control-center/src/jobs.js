@@ -39,8 +39,14 @@ function init(jobRoot){
 function enqueue(jobDirs, job){
   const id = newId();
   const payload = { ...job, id, createdAt: nowIso(), status: 'PENDING' };
-  const p = path.join(jobDirs.pendingDir, id + '.json');
-  writeJson(p, payload);
+
+  // Write atomically: write to a temp file then rename.
+  // This avoids workers reading partially-written JSON.
+  const finalPath = path.join(jobDirs.pendingDir, id + '.json');
+  const tmpPath = finalPath + '.tmp';
+  writeJson(tmpPath, payload);
+  fs.renameSync(tmpPath, finalPath);
+
   return payload;
 }
 
