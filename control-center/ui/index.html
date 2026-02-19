@@ -5,19 +5,74 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>ClawForge</title>
   <style>
-    body{font-family:system-ui,Segoe UI,Arial;max-width:980px;margin:24px auto;padding:0 16px;background:#0b0f14;color:#e7eef7}
-    a{color:#8bd5ff}
-    .card{background:#121926;border:1px solid #243247;border-radius:12px;padding:16px;margin:12px 0}
+    :root{
+      --bg:#0b0f14;
+      --panel:#121926;
+      --panel2:#0f1520;
+      --border:#243247;
+      --text:#e7eef7;
+      --muted:#9bb0c7;
+      --link:#8bd5ff;
+      --good:#36d399;
+      --warn:#fbbf24;
+      --bad:#fb7185;
+      --chip:#162234;
+    }
+    *{box-sizing:border-box}
+    body{font-family:system-ui,Segoe UI,Arial;max-width:1100px;margin:24px auto;padding:0 16px;background:var(--bg);color:var(--text)}
+    a{color:var(--link);text-decoration:none}
+    a:hover{text-decoration:underline}
+    h1{margin:0 0 6px}
+    h2{margin:0 0 10px;font-size:18px}
+    .topbar{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+    .muted{color:var(--muted)}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;margin:12px 0;box-shadow:0 0 0 1px rgba(0,0,0,0.15) inset}
     .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    input,button{font-size:14px;padding:8px 10px;border-radius:10px;border:1px solid #2a3b54;background:#0f1520;color:#e7eef7}
+    .row.tight{gap:8px}
+    input,button,select{font-size:14px;padding:8px 10px;border-radius:10px;border:1px solid #2a3b54;background:var(--panel2);color:var(--text)}
     button{cursor:pointer}
-    pre{white-space:pre-wrap;word-break:break-word;background:#0f1520;border:1px solid #243247;border-radius:10px;padding:12px}
-    .muted{color:#9bb0c7}
+    button.secondary{background:#0c121c}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    pre{white-space:pre-wrap;word-break:break-word;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px;overflow:auto;max-height:420px}
+
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;border:1px solid var(--border);background:var(--chip);font-size:12px;line-height:18px}
+    .dot{width:8px;height:8px;border-radius:999px;background:#6b7280;display:inline-block}
+    .pill.good{border-color:rgba(54,211,153,.35)}
+    .pill.good .dot{background:var(--good)}
+    .pill.warn{border-color:rgba(251,191,36,.35)}
+    .pill.warn .dot{background:var(--warn)}
+    .pill.bad{border-color:rgba(251,113,133,.35)}
+    .pill.bad .dot{background:var(--bad)}
+
+    .banner{border:1px solid var(--border);background:#0c121c;border-radius:12px;padding:10px 12px}
+    .banner.bad{border-color:rgba(251,113,133,.35);background:rgba(251,113,133,.08)}
+    .banner.warn{border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.08)}
+
+    .nodesGrid{display:grid;grid-template-columns:repeat(12, 1fr);gap:10px}
+    .nodeCard{grid-column:span 12;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:14px;padding:12px}
+    @media(min-width:860px){
+      .nodeCard{grid-column:span 6}
+    }
+    .nodeHead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+    .nodeTitle{font-weight:650}
+    .nodeMeta{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;margin-top:10px;font-size:13px}
+    .k{color:var(--muted)}
+    .v{color:var(--text)}
+    .code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+    details summary{cursor:pointer;color:var(--muted)}
   </style>
 </head>
 <body>
-  <h1>ClawForge (LAN)</h1>
-  <div class="muted">Ops + Unreal control center. This is an MVP; we’ll iterate fast.</div>
+  <div class="topbar">
+    <div>
+      <h1>ClawForge (LAN)</h1>
+      <div class="muted">Ops + Unreal control center. This is an MVP; we’ll iterate fast.</div>
+    </div>
+    <div class="row tight">
+      <span class="pill" id="netPill" title="UI refresh health"><span class="dot"></span><span id="netPillText">Idle</span></span>
+      <span class="muted" id="clock"></span>
+    </div>
+  </div>
 
   <div class="card">
     <div class="row">
@@ -34,7 +89,7 @@
     <div class="row">
       <input id="pw" type="password" placeholder="Admin password (printed on first run)" size="40" />
       <button onclick="login()">Login</button>
-      <button onclick="logout()">Logout</button>
+      <button class="secondary" onclick="logout()">Logout</button>
     </div>
     <div id="loginStatus" class="muted"></div>
   </div>
@@ -47,11 +102,24 @@
 
   <div class="card" id="ops">
     <h2>Nodes</h2>
-    <div class="row">
-      <button onclick="loadNodesLive()">Refresh (live)</button>
-      <span class="muted">Auto-refresh: <span id="autoOn">on</span></span>
+    <div class="row" style="justify-content:space-between">
+      <div class="row">
+        <button onclick="loadNodesLive()">Refresh (live)</button>
+        <button class="secondary" onclick="toggleAutoRefresh()">Auto-refresh: <span id="autoOn">on</span></button>
+        <span class="muted">Every <span id="refreshEvery">5</span>s · Last: <span id="nodesLast">—</span></span>
+      </div>
+      <div class="row tight">
+        <span class="pill" id="nodesPill" title="Nodes live endpoint health"><span class="dot"></span><span id="nodesPillText">Not loaded</span></span>
+      </div>
     </div>
-    <pre id="nodesOut"></pre>
+
+    <div id="nodesBanner" style="margin-top:10px;display:none"></div>
+    <div id="nodesList" class="nodesGrid" style="margin-top:10px"></div>
+
+    <details style="margin-top:12px">
+      <summary>Raw /api/nodes/live (debug)</summary>
+      <pre id="nodesOut"></pre>
+    </details>
   </div>
 
   <div class="card" id="unreal">
@@ -92,16 +160,151 @@
   </div>
 
 <script>
+const REFRESH_EVERY_MS = 5000;
+let autoRefresh = true;
+let nodesTimer = null;
+let pendingTimer = null;
+
+function setPill(elId, variant, text){
+  const el = document.getElementById(elId);
+  const txt = document.getElementById(elId + 'Text');
+  if(!el || !txt) return;
+  el.classList.remove('good','warn','bad');
+  if(variant) el.classList.add(variant);
+  txt.textContent = text;
+}
+
+function setBanner(id, html, variant){
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(!html){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='block';
+  el.innerHTML = `<div class="banner ${variant||''}">${html}</div>`;
+}
+
+function esc(s){
+  return String(s ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+}
+
+function fmtAgo(ts){
+  if(!ts) return '—';
+  const d = (Date.now() - ts);
+  if(d < 1000) return 'just now';
+  if(d < 60_000) return `${(d/1000).toFixed(1)}s ago`;
+  if(d < 3_600_000) return `${Math.round(d/60_000)}m ago`;
+  return `${Math.round(d/3_600_000)}h ago`;
+}
+
+function normItems(data){
+  if(!data) return [];
+  if(Array.isArray(data)) return data;
+  if(Array.isArray(data.items)) return data.items;
+  if(Array.isArray(data.nodes)) return data.nodes;
+  if(Array.isArray(data.devices)) return data.devices;
+  return [];
+}
+
+function pick(...xs){
+  for(const x of xs){
+    if(x !== undefined && x !== null && String(x).trim() !== '') return x;
+  }
+  return '';
+}
+
+function nodeStatus(node){
+  const errCode = String(pick(node.errorCode, node.errCode, node.lastErrorCode, node.error?.code, node.lastError?.code, '')).toLowerCase();
+  const status = String(pick(node.status, node.state, node.connection, node.health, '')).toLowerCase();
+  const connected = node.connected;
+  const lastSeen = pick(node.lastSeenAt, node.lastSeen, node.lastSeenMs, node.seenAt, node.seenMs, '');
+  const isStale = typeof lastSeen === 'number' ? (Date.now() - lastSeen) > (REFRESH_EVERY_MS * 2.2) : false;
+
+  if(errCode === 'timeout' || errCode === 'spawn_failed' || status.includes('error')) return {variant:'bad', label:(errCode || 'error')};
+  if(connected === true || status === 'online' || status === 'connected' || status === 'ready') return {variant: isStale ? 'warn' : 'good', label: isStale ? 'stale' : 'online'};
+  if(connected === false || status === 'offline' || status === 'disconnected') return {variant:'warn', label:'offline'};
+  if(status) return {variant:'warn', label:status};
+  return {variant:'warn', label:'unknown'};
+}
+
+function renderNodes(items){
+  const el = document.getElementById('nodesList');
+  if(!items.length){
+    el.innerHTML = '<div class="muted">No nodes returned.</div>';
+    return;
+  }
+
+  const cards = items.map((n) => {
+    const name = pick(n.displayName, n.name, n.deviceName, n.deviceId, n.id, 'Unknown node');
+    const id = pick(n.id, n.deviceId, n.nodeId, '');
+    const ip = pick(n.remoteIp, n.ip, n.addr, '');
+    const platform = pick(n.platform, n.os, n.system, '');
+    const ver = pick(n.version, n.agentVersion, n.build, '');
+
+    const lastSeenRaw = pick(n.lastSeenMs, n.lastSeen, n.seenMs, n.seenAt, n.lastSeenAt, '');
+    const lastSeenMs = (typeof lastSeenRaw === 'number') ? lastSeenRaw : (Date.parse(lastSeenRaw) || 0);
+
+    const {variant, label} = nodeStatus(n);
+
+    const errCode = pick(n.errorCode, n.errCode, n.lastErrorCode, n.error?.code, n.lastError?.code, '');
+    const errMsg = pick(n.errorMessage, n.errMessage, n.error?.message, n.lastError?.message, n.message, '');
+    const errDetail = pick(n.errorDetail, n.error?.detail, n.lastError?.detail, '');
+
+    let errHtml = '';
+    if(String(errCode).toLowerCase() === 'timeout'){
+      errHtml = `<div class="banner warn" style="margin-top:10px"><strong>Timeout:</strong> agent did not respond in time. ${errMsg ? esc(errMsg) : ''}</div>`;
+    } else if(String(errCode).toLowerCase() === 'spawn_failed'){
+      errHtml = `<div class="banner bad" style="margin-top:10px"><strong>Spawn failed:</strong> could not start agent process. ${errMsg ? esc(errMsg) : ''}</div>`;
+    } else if(errCode || errMsg){
+      errHtml = `<div class="banner bad" style="margin-top:10px"><strong>Error:</strong> ${esc(errCode || 'unknown')} ${errMsg ? '· ' + esc(errMsg) : ''}</div>`;
+    }
+
+    const copyIdBtn = id ? `<button class="secondary" style="padding:6px 10px" onclick="copyText('${esc(id)}')">Copy id</button>` : '';
+
+    return `
+      <div class="nodeCard">
+        <div class="nodeHead">
+          <div>
+            <div class="nodeTitle">${esc(name)}</div>
+            <div class="muted code">${esc(id)}</div>
+          </div>
+          <div class="row tight" style="justify-content:flex-end">
+            <span class="pill ${variant}"><span class="dot"></span><span class="code">${esc(label)}</span></span>
+            ${copyIdBtn}
+          </div>
+        </div>
+
+        <div class="nodeMeta">
+          <div class="k">IP</div><div class="v code">${esc(ip || '—')}</div>
+          <div class="k">Platform</div><div class="v">${esc(platform || '—')}</div>
+          <div class="k">Version</div><div class="v code">${esc(ver || '—')}</div>
+          <div class="k">Last seen</div><div class="v">${esc(fmtAgo(lastSeenMs))}</div>
+        </div>
+
+        ${errHtml}
+        ${(errDetail && (String(errCode).toLowerCase() === 'spawn_failed')) ? `<details style="margin-top:10px"><summary>Details</summary><pre>${esc(errDetail)}</pre></details>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  el.innerHTML = cards;
+}
+
 async function j(url, opts={}){
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    ...opts,
-  });
-  const txt = await res.text();
-  let data;
-  try { data = JSON.parse(txt); } catch { data = { raw: txt }; }
-  return { ok: res.ok, status: res.status, data };
+  const started = Date.now();
+  try{
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      ...opts,
+    });
+    const txt = await res.text();
+    let data;
+    try { data = JSON.parse(txt); } catch { data = { raw: txt }; }
+    const ms = Date.now() - started;
+    return { ok: res.ok, status: res.status, data, ms };
+  } catch (e){
+    const ms = Date.now() - started;
+    return { ok:false, status:0, data:{ error: String(e?.message || e) }, ms };
+  }
 }
 
 async function ping(){
@@ -114,15 +317,68 @@ async function loadNodes(){
   document.getElementById('nodesOut').textContent = JSON.stringify(r, null, 2);
 }
 
-async function loadNodesLive(){
-  const r = await j('/api/nodes/live');
-  document.getElementById('nodesOut').textContent = JSON.stringify(r, null, 2);
+let nodesLastOkAt = 0;
+let nodesLastTryAt = 0;
+let nodesLastErr = '';
+
+function updateNodesMeta(){
+  document.getElementById('nodesLast').textContent = nodesLastTryAt ? fmtAgo(nodesLastTryAt) : '—';
+  const age = nodesLastOkAt ? (Date.now() - nodesLastOkAt) : Infinity;
+  if(!nodesLastTryAt){
+    setPill('nodesPill', null, 'Not loaded');
+    return;
+  }
+  if(nodesLastErr){
+    setPill('nodesPill', 'bad', nodesLastErr);
+    return;
+  }
+  if(age < REFRESH_EVERY_MS * 1.6) setPill('nodesPill','good','Live');
+  else if(age < REFRESH_EVERY_MS * 3.2) setPill('nodesPill','warn','Stale');
+  else setPill('nodesPill','bad','Very stale');
 }
 
-// Auto-refresh nodes
-setInterval(() => {
-  loadNodesLive().catch(() => {});
-}, 5000);
+async function loadNodesLive(){
+  nodesLastTryAt = Date.now();
+  nodesLastErr = '';
+  updateNodesMeta();
+
+  const r = await j('/api/nodes/live');
+  document.getElementById('nodesOut').textContent = JSON.stringify(r, null, 2);
+
+  if(r.ok){
+    nodesLastOkAt = Date.now();
+    setBanner('nodesBanner', '', '');
+    const items = normItems(r.data);
+    renderNodes(items);
+  } else {
+    nodesLastErr = (r.status === 0) ? 'network error' : `HTTP ${r.status}`;
+    const msg = esc(JSON.stringify(r.data));
+    setBanner('nodesBanner', `<strong>Could not load live nodes.</strong> ${nodesLastErr} · <span class="code">${msg}</span>`, 'bad');
+    document.getElementById('nodesList').innerHTML = '';
+  }
+  updateNodesMeta();
+}
+
+function startTimers(){
+  stopTimers();
+  if(autoRefresh){
+    nodesTimer = setInterval(() => loadNodesLive().catch(()=>{}), REFRESH_EVERY_MS);
+    pendingTimer = setInterval(() => loadPending().catch(()=>{}), REFRESH_EVERY_MS);
+  }
+}
+
+function stopTimers(){
+  if(nodesTimer) clearInterval(nodesTimer);
+  if(pendingTimer) clearInterval(pendingTimer);
+  nodesTimer = null;
+  pendingTimer = null;
+}
+
+function toggleAutoRefresh(){
+  autoRefresh = !autoRefresh;
+  document.getElementById('autoOn').textContent = autoRefresh ? 'on' : 'off';
+  startTimers();
+}
 
 async function loadState(){
   const r = await j('/api/openclaw/state');
@@ -152,10 +408,6 @@ async function logout(){
   document.getElementById('loginStatus').textContent = r.ok ? 'Logged out.' : ('Logout error: ' + JSON.stringify(r.data));
 }
 
-function esc(s){
-  return String(s ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
-}
-
 function renderPending(items){
   const el = document.getElementById('pendingTable');
   document.getElementById('pendingCount').textContent = String(items.length);
@@ -170,12 +422,16 @@ function renderPending(items){
     const platform = esc(it.platform || '');
     return `
       <div class="card" style="margin:10px 0">
-        <div><strong>${name}</strong> <span class="muted">(${platform})</span></div>
-        <div class="muted">requestId: ${rid}</div>
-        <div class="muted">ip: ${ip}</div>
-        <div class="row" style="margin-top:8px">
-          <button onclick="approve('${rid}')">Approve</button>
-          <button onclick="reject('${rid}')">Reject</button>
+        <div class="row" style="justify-content:space-between">
+          <div>
+            <div><strong>${name}</strong> <span class="muted">(${platform})</span></div>
+            <div class="muted code">requestId: ${rid}</div>
+            <div class="muted">ip: <span class="code">${ip}</span></div>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button onclick="approve('${rid}')">Approve</button>
+            <button class="secondary" onclick="reject('${rid}')">Reject</button>
+          </div>
         </div>
       </div>
     `;
@@ -204,10 +460,31 @@ async function reject(requestId){
   if(!r.ok){ alert('Reject failed: ' + JSON.stringify(r.data)); }
 }
 
-// Auto-refresh pending approvals
+async function copyText(t){
+  try{
+    await navigator.clipboard.writeText(t);
+  } catch {
+    // best-effort fallback
+    const ta = document.createElement('textarea');
+    ta.value = t; document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+}
+
+// Small clock (helps correlate refresh / timeouts)
 setInterval(() => {
-  loadPending().catch(() => {});
-}, 5000);
+  document.getElementById('clock').textContent = new Date().toLocaleString();
+  updateNodesMeta();
+}, 500);
+
+// Initial
+document.getElementById('refreshEvery').textContent = String(Math.round(REFRESH_EVERY_MS/1000));
+startTimers();
+// Load once immediately
+loadNodesLive().catch(()=>{});
+loadPending().catch(()=>{});
 </script>
 </body>
 </html>
