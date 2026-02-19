@@ -1,209 +1,239 @@
-﻿{
-    "posted":  [
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Demystifying evals for AI agents",
-                       "url":  "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents",
-                       "topic":  "agent eval harness design (tasks/trials/graders/transcripts/outcomes)"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Design Patterns for Securing LLM Agents against Prompt Injections",
-                       "url":  "https://simonwillison.net/2025/Jun/13/prompt-injection-design-patterns/",
-                       "topic":  "prompt-injection defenses via constrained agent architectures"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Improving 15 LLMs at Coding in One Afternoon. Only the Harness Changed",
-                       "url":  "https://news.ycombinator.com/item?id=46988596",
-                       "topic":  "harness/scaffold improvements can dominate model choice"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Quantifying infrastructure noise in agentic coding evals",
-                       "url":  "https://www.anthropic.com/engineering/infrastructure-noise",
-                       "topic":  "infra configuration variance can dwarf model-to-model benchmark deltas"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Two new Showboat tools: Chartroom and datasette-showboat",
-                       "url":  "https://simonwillison.net/2026/Feb/17/chartroom-and-datasette-showboat/",
-                       "topic":  "turn agent work into shareable, incremental artifacts (docs + charts + publish)"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "LLM Powered Autonomous Agents",
-                       "url":  "https://lilianweng.github.io/posts/2023-06-23-agent/",
-                       "topic":  "agent building blocks: planning, memory, tools, and evaluation considerations"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Building a C compiler with a team of parallel Claudes",
-                       "url":  "https://www.anthropic.com/engineering/building-c-compiler",
-                       "topic":  "parallel-agent collaboration patterns + role separation on a real compiler"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Designing AI-resistant technical evaluations",
-                       "url":  "https://www.anthropic.com/engineering/AI-resistant-technical-evaluations",
-                       "topic":  "designing assessments that remain valid with ubiquitous AI assistance"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Qwen3.5: Towards Native Multimodal Agents",
-                       "url":  "https://simonwillison.net/2026/Feb/17/qwen35/",
-                       "topic":  "MoE + linear attention for serving efficiency; long-context + tool features"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "HackMyClaw",
-                       "url":  "https://hackmyclaw.com/",
-                       "topic":  "HN: interactive security/attack surface exploration for agent systems"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Protecting AI conversations at Microsoft with Model Context Protocol security and governance",
-                       "url":  "https://www.microsoft.com/insidetrack/blog/protecting-ai-conversations-at-microsoft-with-model-context-protocol-security-and-governance/",
-                       "topic":  "MCP governance: vetted server catalog, API gateway, consent-before-edits, drift detection across metadata/identity/content/code layers"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Breaking the Protocol: Security Analysis of the Model Context Protocol Specification and Prompt Injection Vulnerabilities in Tool-Integrated LLM Agents",
-                       "url":  "https://arxiv.org/html/2601.17549v1/",
-                       "topic":  "protocol-level MCP weaknesses; ProtoAmp benchmark; AttestMCP (capability attestation + message auth) cuts ASR dramatically"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "AI Agent Evaluation Framework: Why It Matters for BFSIs",
-                       "url":  "https://neurons-lab.com/article/ai-agent-evaluation-framework/",
-                       "topic":  "evals as continuous monitoring; define agent skills w/ SMEs; gold/silver sets; observability for variable non-binary behavior"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "AgentNoiseBench: Benchmarking Robustness of Tool-Using LLM Agents Under Noisy Condition",
-                       "url":  "https://arxiv.org/abs/2602.11348",
-                       "topic":  "robustness evals: inject controllable user-noise + tool-noise into agent benchmarks while keeping tasks solvable"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Agent Harnesses: Why 2026 Isn\u0027t About More Agents â€” It\u0027s About Controlling Them",
-                       "url":  "https://dev.to/htekdev/agent-harnesses-why-2026-isnt-about-more-agents-its-about-controlling-them-1f24",
-                       "topic":  "control-plane patterns for agents: budgets, allowlists, blocked-tool feedback, observability per-iteration"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Harness AI January 2026 Updates: Human-Aware SRE \u0026 Smarter API and Application Security",
-                       "url":  "https://www.harness.io/blog/harness-ai-january-2026-updates",
-                       "topic":  "ops+sec agents in practice: correlate incident conversations with change graphs; reduce security noise via semantic API naming"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "From Task Solving to Robust Real-World Adaptation in LLM Agents",
-                       "url":  "https://arxiv.org/html/2602.02760",
-                       "topic":  "robustness benchmark that violates clean-interface assumptions (partial observability, noise, non-stationarity)"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Agent-Diff: Benchmarking LLM Agents on Enterprise API Tasks via Code Execution with State-Diff-Based Evaluation",
-                       "url":  "https://arxiv.org/html/2602.11224",
-                       "topic":  "enterprise SaaS workflow benchmark; success defined by state-diff contracts in a reproducible sandbox"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "AgentNoiseBench: Benchmarking Robustness of Tool-Using LLM Agents Under Noisy Condition (HTML)",
-                       "url":  "https://arxiv.org/html/2602.11348",
-                       "topic":  "noise injection pipeline (user-noise + tool-noise) + trajectory-aware evaluation"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Effective harnesses for long-running agents",
-                       "url":  "https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents",
-                       "topic":  "agent control plane: checkpoints, retries, timeouts, tool errors, and recoverable state"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "Three months of OpenClaw",
-                       "url":  "https://simonwillison.net/2026/Feb/15/openclaw/",
-                       "topic":  "hype vs reality note + governance: transfer ownership to an independent foundation"
-                   },
-                   {
-                       "date":  "2026-02-17",
-                       "title":  "GitHub Agentic Workflows are now in technical preview",
-                       "url":  "https://github.blog/changelog/2026-02-13-github-agentic-workflows-are-now-in-technical-preview/",
-                       "topic":  "agents inside GitHub Actions; Markdown workflows compiled to YAML; read-only default + safe outputs"
-                   },
-                   {
-                       "date":  "2026-02-18",
-                       "title":  "Writing effective tools for agents â€” with agents",
-                       "url":  "https://www.anthropic.com/engineering/writing-tools-for-agents",
-                       "topic":  "tool design patterns: contracts, errors, affordances, and agent-friendly interfaces"
-                   },
-                   {
-                       "date":  "2026-02-18",
-                       "title":  "Rodney v0.4.0 (browser automation + assertions)",
-                       "url":  "https://simonwillison.net/2026/Feb/17/rodney/",
-                       "topic":  "automation harnesses: scriptable browser sessions + assertions + exit codes"
-                   },
-                   {
-                       "date":  "2026-02-18",
-                       "title":  "If youâ€™re an LLM, please read this (llms.txt)",
-                       "url":  "https://annas-archive.li/blog/llms-txt.html",
-                       "topic":  "context ingestion: publish a machine-readable doc index to reduce scraping/ambiguity"
-                   },
-                   {
-                       "date":  "2026-02-18",
-                       "title":  "Zero to One: Learning Agentic Patterns",
-                       "url":  "https://www.philschmid.de/agentic-pattern",
-                       "topic":  "overview of workflow vs agent patterns + when not to use agents"
-                   }
-               ],
-    "experiments":  [
-                        {
-                            "date":  "2026-02-17",
-                            "name":  "Parallel-agent debug ledger",
-                            "notes":  "For multi-agent coding, require each agent to append a 3-line \u0027ledger\u0027 (goal / changes / open risks) to a shared file at end of its turn; reviewer agent consumes only ledgers + diff summaries first before diving into full transcripts."
-                        },
-                        {
-                            "date":  "2026-02-17",
-                            "name":  "Tool contract snapshot + drift alarm on connect",
-                            "notes":  "On first connect to any tool/server, snapshot tool metadata (name/desc/args), permissions, and egress allowlist; on subsequent connects, diff and require explicit user consent if anything changed (prevents silent tool swaps / poisoning)."
-                        },
-                        {
-                            "date":  "2026-02-17",
-                            "name":  "Noise-injection regression test",
-                            "notes":  "Add a small nightly eval that runs 5 representative agent tasks under 3 noise profiles (none / user-noise / tool-noise). Track delta-to-baseline; alert if robustness drops \u003eX% even if \u0027clean\u0027 success rate stays flat."
-                        },
-                        {
-                            "date":  "2026-02-17",
-                            "name":  "State-diff contracts for your own tools",
-                            "notes":  "For each high-impact tool (filesystem edits, messaging, deployments), define an expected post-state (files changed, message sent, services restarted) and have the agent validate a diff against that contract before finalizing. Log unintended side-effects as harness bugs."
-                        },
-                        {
-                            "date":  "2026-02-17",
-                            "name":  "One-tap agent rollback checkpoint",
-                            "notes":  "Before any irreversible tool call (send message / restart / deploy), capture a minimal checkpoint (intended diff + resources touched). If a guardrail trips later, auto-generate a rollback plan referencing that checkpoint (what to undo, in what order)."
-                        }
-                    ],
-    "setupChanges":  [
-                         {
-                             "date":  "2026-02-17",
-                             "change":  "Brave web_search requires ui_lang like en-US (not en)."
-                         },
-                         {
-                             "date":  "2026-02-17",
-                             "change":  "Some dynamic sites (e.g., W\u0026B reports) may not extract via web_fetch readability; prefer alternate sources or browser snapshot when allowed."
-                         },
-                         {
-                             "date":  "2026-02-17",
-                             "change":  "web_fetch readability can truncate long posts; capture the key section early (problem/insight/action) and keep maxChars modest to avoid wasting fetch budget."
-                         },
-                         {
-                             "date":  "2026-02-17",
-                             "change":  "Brave web_search Free plan is effectively 1 request per moment; avoid parallel searches or add spacing/retry."
-                         },
-                         {
-                             "date":  "2026-02-17",
-                             "change":  "When a source search returns 0 results, use the site landing page + internal links (counts as a fetch, not a search) to stay within query budget."
-                         }
-                     ]
+{
+  "posted": [
+    {
+      "date": "2026-02-17",
+      "title": "Demystifying evals for AI agents",
+      "url": "https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents",
+      "topic": "agent eval harness design (tasks/trials/graders/transcripts/outcomes)"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "Design Patterns for Securing LLM Agents against Prompt Injections",
+      "url": "https://simonwillison.net/2025/Jun/13/prompt-injection-design-patterns/",
+      "topic": "prompt-injection defenses via constrained agent architectures"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "Improving 15 LLMs at Coding in One Afternoon. Only the Harness Changed",
+      "url": "https://news.ycombinator.com/item?id=46988596",
+      "topic": "harness/scaffold improvements can dominate model choice"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "Quantifying infrastructure noise in agentic coding evals",
+      "url": "https://www.anthropic.com/engineering/infrastructure-noise",
+      "topic": "infra configuration variance can dwarf model-to-model benchmark deltas"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "Two new Showboat tools: Chartroom and datasette-showboat",
+      "url": "https://simonwillison.net/2026/Feb/17/chartroom-and-datasette-showboat/",
+      "topic": "turn agent work into shareable, incremental artifacts (docs + charts + publish)"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "LLM Powered Autonomous Agents",
+      "url": "https://lilianweng.github.io/posts/2023-06-23-agent/",
+      "topic": "agent building blocks: planning, memory, tools, and evaluation considerations"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "Building a C compiler with a team of parallel Claudes",
+      "url": "https://www.anthropic.com/engineering/building-c-compiler",
+      "topic": "parallel-agent collaboration patterns + role separation on a real compiler"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "Designing AI-resistant technical evaluations",
+      "url": "https://www.anthropic.com/engineering/AI-resistant-technical-evaluations",
+      "topic": "designing assessments that remain valid with ubiquitous AI assistance"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "Qwen3.5: Towards Native Multimodal Agents",
+      "url": "https://simonwillison.net/2026/Feb/17/qwen35/",
+      "topic": "MoE + linear attention for serving efficiency; long-context + tool features"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "HackMyClaw",
+      "url": "https://hackmyclaw.com/",
+      "topic": "HN: interactive security/attack surface exploration for agent systems"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "Protecting AI conversations at Microsoft with Model Context Protocol security and governance",
+      "url": "https://www.microsoft.com/insidetrack/blog/protecting-ai-conversations-at-microsoft-with-model-context-protocol-security-and-governance/",
+      "topic": "MCP governance: vetted server catalog, API gateway, consent-before-edits, drift detection across metadata/identity/content/code layers"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "Breaking the Protocol: Security Analysis of the Model Context Protocol Specification and Prompt Injection Vulnerabilities in Tool-Integrated LLM Agents",
+      "url": "https://arxiv.org/html/2601.17549v1/",
+      "topic": "protocol-level MCP weaknesses; ProtoAmp benchmark; AttestMCP (capability attestation + message auth) cuts ASR dramatically"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "AI Agent Evaluation Framework: Why It Matters for BFSIs",
+      "url": "https://neurons-lab.com/article/ai-agent-evaluation-framework/",
+      "topic": "evals as continuous monitoring; define agent skills w/ SMEs; gold/silver sets; observability for variable non-binary behavior"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "AgentNoiseBench: Benchmarking Robustness of Tool-Using LLM Agents Under Noisy Condition",
+      "url": "https://arxiv.org/abs/2602.11348",
+      "topic": "robustness evals: inject controllable user-noise + tool-noise into agent benchmarks while keeping tasks solvable"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "Agent Harnesses: Why 2026 Isn't About More Agents — It's About Controlling Them",
+      "url": "https://dev.to/htekdev/agent-harnesses-why-2026-isnt-about-more-agents-its-about-controlling-them-1f24",
+      "topic": "control-plane patterns for agents: budgets, allowlists, blocked-tool feedback, observability per-iteration"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "Harness AI January 2026 Updates: Human-Aware SRE & Smarter API and Application Security",
+      "url": "https://www.harness.io/blog/harness-ai-january-2026-updates",
+      "topic": "ops+sec agents in practice: correlate incident conversations with change graphs; reduce security noise via semantic API naming"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "From Task Solving to Robust Real-World Adaptation in LLM Agents",
+      "url": "https://arxiv.org/html/2602.02760",
+      "topic": "robustness benchmark that violates clean-interface assumptions (partial observability, noise, non-stationarity)"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "Agent-Diff: Benchmarking LLM Agents on Enterprise API Tasks via Code Execution with State-Diff-Based Evaluation",
+      "url": "https://arxiv.org/html/2602.11224",
+      "topic": "enterprise SaaS workflow benchmark; success defined by state-diff contracts in a reproducible sandbox"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "AgentNoiseBench: Benchmarking Robustness of Tool-Using LLM Agents Under Noisy Condition (HTML)",
+      "url": "https://arxiv.org/html/2602.11348",
+      "topic": "noise injection pipeline (user-noise + tool-noise) + trajectory-aware evaluation"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "Effective harnesses for long-running agents",
+      "url": "https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents",
+      "topic": "agent control plane: checkpoints, retries, timeouts, tool errors, and recoverable state"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "Three months of OpenClaw",
+      "url": "https://simonwillison.net/2026/Feb/15/openclaw/",
+      "topic": "hype vs reality note + governance: transfer ownership to an independent foundation"
+    },
+    {
+      "date": "2026-02-17",
+      "title": "GitHub Agentic Workflows are now in technical preview",
+      "url": "https://github.blog/changelog/2026-02-13-github-agentic-workflows-are-now-in-technical-preview/",
+      "topic": "agents inside GitHub Actions; Markdown workflows compiled to YAML; read-only default + safe outputs"
+    },
+    {
+      "date": "2026-02-18",
+      "title": "Writing effective tools for agents — with agents",
+      "url": "https://www.anthropic.com/engineering/writing-tools-for-agents",
+      "topic": "tool design patterns: contracts, errors, affordances, and agent-friendly interfaces"
+    },
+    {
+      "date": "2026-02-18",
+      "title": "Rodney v0.4.0 (browser automation + assertions)",
+      "url": "https://simonwillison.net/2026/Feb/17/rodney/",
+      "topic": "automation harnesses: scriptable browser sessions + assertions + exit codes"
+    },
+    {
+      "date": "2026-02-18",
+      "title": "If you're an LLM, please read this (llms.txt)",
+      "url": "https://annas-archive.li/blog/llms-txt.html",
+      "topic": "context ingestion: publish a machine-readable doc index to reduce scraping/ambiguity"
+    },
+    {
+      "date": "2026-02-18",
+      "title": "Zero to One: Learning Agentic Patterns",
+      "url": "https://www.philschmid.de/agentic-pattern",
+      "topic": "overview of workflow vs agent patterns + when not to use agents"
+    },
+    {
+      "date": "2026-02-18",
+      "title": "Effective context engineering for AI agents",
+      "url": "https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents",
+      "topic": "context engineering: treat context as scarce attention; curate/compact/tool outputs"
+    },
+    {
+      "date": "2026-02-18",
+      "title": "Here’s how I use LLMs to help me write code",
+      "url": "https://simonwillison.net/2025/Mar/11/using-llms-for-code/",
+      "topic": "context management + workflow patterns for LLM-assisted coding"
+    },
+    {
+      "date": "2026-02-18",
+      "title": "25+ years into my career as a programmer I think I may finally be coming around to preferring type hints or even strong typing",
+      "url": "https://simonwillison.net/2026/Feb/18/typing/",
+      "topic": "agent-assisted coding: let agents do the boilerplate; use types as executable constraints"
+    },
+    {
+      "date": "2026-02-18",
+      "title": "How we built our multi-agent research system",
+      "url": "https://www.anthropic.com/engineering/multi-agent-research-system",
+      "topic": "multi-agent orchestration patterns: role separation + coordination + evaluation"
+    },
+    {
+      "date": "2026-02-18",
+      "title": "Optimizing PowerShell Unicode Display and External Program Encoding on Windows",
+      "url": "https://sqlpey.com/powershell/optimizing-powershell-unicode-encoding/",
+      "topic": "PowerShell/terminal UTF-8 hygiene: prefer Windows Terminal and set encoding defaults for tool interoperability"
+    }
+  ],
+  "experiments": [
+    {
+      "date": "2026-02-17",
+      "name": "Parallel-agent debug ledger",
+      "notes": "For multi-agent coding, require each agent to append a 3-line 'ledger' (goal / changes / open risks) to a shared file at end of its turn; reviewer agent consumes only ledgers + diff summaries first before diving into full transcripts."
+    },
+    {
+      "date": "2026-02-17",
+      "name": "Tool contract snapshot + drift alarm on connect",
+      "notes": "On first connect to any tool/server, snapshot tool metadata (name/desc/args), permissions, and egress allowlist; on subsequent connects, diff and require explicit user consent if anything changed (prevents silent tool swaps / poisoning)."
+    },
+    {
+      "date": "2026-02-17",
+      "name": "Noise-injection regression test",
+      "notes": "Add a small nightly eval that runs 5 representative agent tasks under 3 noise profiles (none / user-noise / tool-noise). Track delta-to-baseline; alert if robustness drops >X% even if 'clean' success rate stays flat."
+    },
+    {
+      "date": "2026-02-17",
+      "name": "State-diff contracts for your own tools",
+      "notes": "For each high-impact tool (filesystem edits, messaging, deployments), define an expected post-state (files changed, message sent, services restarted) and have the agent validate a diff against that contract before finalizing. Log unintended side-effects as harness bugs."
+    },
+    {
+      "date": "2026-02-17",
+      "name": "One-tap agent rollback checkpoint",
+      "notes": "Before any irreversible tool call (send message / restart / deploy), capture a minimal checkpoint (intended diff + resources touched). If a guardrail trips later, auto-generate a rollback plan referencing that checkpoint (what to undo, in what order)."
+    }
+  ],
+  "setupChanges": [
+    {
+      "date": "2026-02-17",
+      "change": "Brave web_search requires ui_lang like en-US (not en)."
+    },
+    {
+      "date": "2026-02-17",
+      "change": "Some dynamic sites (e.g., W&B reports) may not extract via web_fetch readability; prefer alternate sources or browser snapshot when allowed."
+    },
+    {
+      "date": "2026-02-17",
+      "change": "web_fetch readability can truncate long posts; capture the key section early (problem/insight/action) and keep maxChars modest to avoid wasting fetch budget."
+    },
+    {
+      "date": "2026-02-17",
+      "change": "Brave web_search Free plan is effectively 1 request per moment; avoid parallel searches or add spacing/retry."
+    },
+    {
+      "date": "2026-02-17",
+      "change": "When a source search returns 0 results, use the site landing page + internal links (counts as a fetch, not a search) to stay within query budget."
+    }
+  ]
 }
