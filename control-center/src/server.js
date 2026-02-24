@@ -1131,6 +1131,12 @@ function startWorkerLoop() {
   let rerunRequested = false;
   let rerunDelayMs = 0;
   let rerunForced = false;
+
+  // Keep filesystem “maintenance” (tmp cleanup, stale requeue, failed auto-retry)
+  // from running on every tick. This reduces disk churn with short poll intervals.
+  const maintenanceEveryMs = Math.max(1_000, Math.min(5 * 60_000, Number(process.env.CONTROL_CENTER_WORKER_MAINTENANCE_EVERY_MS || 15_000)));
+  let lastMaintenanceAt = 0;
+
   const tick = async ({ forced = false } = {}) => {
     // If a tick is already running, remember to run again once it finishes.
     // Only treat it as "forced" when the trigger is explicit (API kick/fs.watch),
@@ -1150,57 +1156,64 @@ function startWorkerLoop() {
 
       // Recover from worker crashes: cleanup temp files + move stale RUNNING jobs back to pending.
       // Keep these best-effort so a single filesystem hiccup doesn't block job draining.
-      try {
-        const tmpRemoved = jobs.cleanupTmp(jobDirs);
-        if (tmpRemoved > 0) audit('worker.cleanupTmp', null, { ok: true, count: tmpRemoved });
-      } catch (e) {
-        audit('worker.cleanupTmp', null, { ok: false, error: e?.message || String(e) });
-      }
+      // Throttled to avoid heavy churn when workerPollMs is small.
+      const now = Date.now();
+      const shouldMaintain = forced || ((now - lastMaintenanceAt) >= maintenanceEveryMs);
+      if (shouldMaintain) {
+        lastMaintenanceAt = now;
 
-      try {
-        const staleMs = Math.max(30_000, Number(process.env.CONTROL_CENTER_STALE_MS || (10 * 60 * 1000)));
-        const maxAttempts = Math.max(1, Math.min(25, Number(process.env.CONTROL_CENTER_MAX_ATTEMPTS || 3)));
-        const requeued = jobs.requeueStale(jobDirs, { staleMs, maxAttempts });
-        if (requeued > 0) audit('worker.requeueStale', null, { ok: true, count: requeued, staleMs, maxAttempts });
-      } catch (e) {
-        audit('worker.requeueStale', null, { ok: false, error: e?.message || String(e) });
-      }
-
-      // Reliability: auto-retry a subset of FAILED jobs that are likely transient.
-      // This helps keep the queue moving without manual intervention.
-      try {
-        const autoRetryEnabled = (process.env.CONTROL_CENTER_AUTO_RETRY_FAILED || '1') !== '0';
-        if (autoRetryEnabled) {
-          const maxAttempts = Math.max(1, Math.min(25, Number(process.env.CONTROL_CENTER_MAX_ATTEMPTS || 3)));
-          const minAgeMs = Math.max(0, Number(process.env.CONTROL_CENTER_AUTO_RETRY_MIN_AGE_MS || 30_000));
-          const allow = String(process.env.CONTROL_CENTER_AUTO_RETRY_ERRORS || 'TIMEOUT,FETCH_FAILED,NODES_RUN_FAILED')
-            .split(',').map(s => s.trim()).filter(Boolean);
-
-          let files = [];
-          try { files = fs.readdirSync(jobDirs.failedDir); } catch { files = []; }
-          files = files.filter(f => f.endsWith('.json'));
-          files.sort((a, b) => a.localeCompare(b));
-
-          for (const f of files) {
-            const id = f.replace(/\.json$/i, '');
-            const j = jobs.get(jobDirs, id);
-            if (!j || j.status !== 'FAILED') continue;
-            const attempts = Number(j.attempts || 0);
-            if (attempts >= maxAttempts) continue;
-
-            const finishedAt = Date.parse(j.finishedAt || '') || 0;
-            if (finishedAt && (Date.now() - finishedAt) < minAgeMs) continue;
-
-            const err = String(j.result?.error || '').trim();
-            if (!err || !allow.includes(err)) continue;
-
-            const next = jobs.retryFailed(jobDirs, id, { delayMs: 2_000 });
-            if (next) audit('worker.autoRetryFailed', null, { ok: true, jobId: id, error: err, attempts: next.attempts || attempts });
-            break; // do at most one per tick
-          }
+        try {
+          const tmpRemoved = jobs.cleanupTmp(jobDirs);
+          if (tmpRemoved > 0) audit('worker.cleanupTmp', null, { ok: true, count: tmpRemoved });
+        } catch (e) {
+          audit('worker.cleanupTmp', null, { ok: false, error: e?.message || String(e) });
         }
-      } catch (e) {
-        audit('worker.autoRetryFailed', null, { ok: false, error: e?.message || String(e) });
+
+        try {
+          const staleMs = Math.max(30_000, Number(process.env.CONTROL_CENTER_STALE_MS || (10 * 60 * 1000)));
+          const maxAttempts = Math.max(1, Math.min(25, Number(process.env.CONTROL_CENTER_MAX_ATTEMPTS || 3)));
+          const requeued = jobs.requeueStale(jobDirs, { staleMs, maxAttempts });
+          if (requeued > 0) audit('worker.requeueStale', null, { ok: true, count: requeued, staleMs, maxAttempts });
+        } catch (e) {
+          audit('worker.requeueStale', null, { ok: false, error: e?.message || String(e) });
+        }
+
+        // Reliability: auto-retry a subset of FAILED jobs that are likely transient.
+        // This helps keep the queue moving without manual intervention.
+        try {
+          const autoRetryEnabled = (process.env.CONTROL_CENTER_AUTO_RETRY_FAILED || '1') !== '0';
+          if (autoRetryEnabled) {
+            const maxAttempts = Math.max(1, Math.min(25, Number(process.env.CONTROL_CENTER_MAX_ATTEMPTS || 3)));
+            const minAgeMs = Math.max(0, Number(process.env.CONTROL_CENTER_AUTO_RETRY_MIN_AGE_MS || 30_000));
+            const allow = String(process.env.CONTROL_CENTER_AUTO_RETRY_ERRORS || 'TIMEOUT,FETCH_FAILED,NODES_RUN_FAILED')
+              .split(',').map(s => s.trim()).filter(Boolean);
+
+            let files = [];
+            try { files = fs.readdirSync(jobDirs.failedDir); } catch { files = []; }
+            files = files.filter(f => f.endsWith('.json'));
+            files.sort((a, b) => a.localeCompare(b));
+
+            for (const f of files) {
+              const id = f.replace(/\.json$/i, '');
+              const j = jobs.get(jobDirs, id);
+              if (!j || j.status !== 'FAILED') continue;
+              const attempts = Number(j.attempts || 0);
+              if (attempts >= maxAttempts) continue;
+
+              const finishedAt = Date.parse(j.finishedAt || '') || 0;
+              if (finishedAt && (Date.now() - finishedAt) < minAgeMs) continue;
+
+              const err = String(j.result?.error || '').trim();
+              if (!err || !allow.includes(err)) continue;
+
+              const next = jobs.retryFailed(jobDirs, id, { delayMs: 2_000 });
+              if (next) audit('worker.autoRetryFailed', null, { ok: true, jobId: id, error: err, attempts: next.attempts || attempts });
+              break; // do at most one per maintenance pass
+            }
+          }
+        } catch (e) {
+          audit('worker.autoRetryFailed', null, { ok: false, error: e?.message || String(e) });
+        }
       }
 
       // Drain a few jobs per tick to reduce latency.
