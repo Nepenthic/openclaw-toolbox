@@ -103,6 +103,10 @@ const app = Fastify({ logger: true, trustProxy: false });
 const bindHost = process.env.CONTROL_CENTER_BIND || '0.0.0.0';
 const port = Number(process.env.CONTROL_CENTER_PORT || 3080);
 
+// How many pending jobs to sample when determining if at least one is runnable (notBefore elapsed).
+// Used both in UI summary + worker burst-drain heuristics.
+const readyPendingSampleLimit = Math.max(1, Math.min(2000, Number(process.env.CONTROL_CENTER_READY_PENDING_SAMPLE_LIMIT || 200)));
+
 // Optional: default node to execute jobs on (useful for Unreal build/package on a dedicated box like K15)
 const defaultNodeId = (process.env.CONTROL_CENTER_DEFAULT_NODE_ID || '').trim();
 
@@ -420,7 +424,7 @@ app.get('/api/jobs/summary', async (req, reply) => {
 
   // Best-effort hint for the UI: distinguishes “pending but delayed (notBefore)” from “pending and runnable”.
   let readyPending = null;
-  try { readyPending = jobs.hasReadyPending(jobDirs, { sampleLimit: 25 }); } catch { readyPending = null; }
+  try { readyPending = jobs.hasReadyPending(jobDirs, { sampleLimit: readyPendingSampleLimit }); } catch { readyPending = null; }
 
   reply.send({
     ok: true,
@@ -977,7 +981,7 @@ function startWorkerLoop() {
         try {
           // Only rerun immediately if there are *claimable* pending jobs.
           // Prevents a tight loop when the queue contains only delayed (notBefore) jobs.
-          if (jobs.hasReadyPending(jobDirs, { sampleLimit: 200 })) rerunRequested = true;
+          if (jobs.hasReadyPending(jobDirs, { sampleLimit: readyPendingSampleLimit })) rerunRequested = true;
         } catch {
           // ignore
         }
@@ -988,7 +992,7 @@ function startWorkerLoop() {
       // immediate retry instead of waiting for the next poll interval.
       if (drained === 0) {
         try {
-          if (jobs.hasReadyPending(jobDirs, { sampleLimit: 200 })) rerunRequested = true;
+          if (jobs.hasReadyPending(jobDirs, { sampleLimit: readyPendingSampleLimit })) rerunRequested = true;
         } catch {
           // ignore
         }
