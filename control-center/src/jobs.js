@@ -290,7 +290,7 @@ function requeueStale(jobDirs, { staleMs = 10 * 60 * 1000, maxAttempts = 3 } = {
   for(const f of files){
     if(!f.endsWith('.json')) continue;
     const p = path.join(jobDirs.processingDir, f);
-    const j = readJson(p);
+    const j = readJsonRetry(p, null, { attempts: 6, delayMs: 25 });
     if(!j) continue;
 
     // Some crash windows can leave jobs in processing/ without startedAt.
