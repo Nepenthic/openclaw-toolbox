@@ -49,9 +49,25 @@ const secretsPath = path.join(stateDir, 'secrets.json');
 let secrets = readJson(secretsPath);
 
 // Minimal audit log (JSONL). Keep it local + append-only.
+// Rotate when it gets too big so a long-running LAN server doesn’t grow without bound.
 const auditPath = path.join(stateDir, 'audit.log');
+const auditMaxBytes = Number(process.env.CONTROL_CENTER_AUDIT_MAX_BYTES || (10 * 1024 * 1024)); // 10MB
+function maybeRotateAudit() {
+  try {
+    const st = fs.statSync(auditPath);
+    if (!st.isFile()) return;
+    if (st.size < auditMaxBytes) return;
+
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const rotated = path.join(stateDir, `audit.${ts}.log`);
+    fs.renameSync(auditPath, rotated);
+  } catch {
+    // ignore: best-effort only
+  }
+}
 function audit(event, req, extra = {}) {
   try {
+    maybeRotateAudit();
     const rec = {
       ts: new Date().toISOString(),
       event,
