@@ -1221,7 +1221,8 @@ function startWorkerLoop() {
   // Debounce to avoid a storm of kicks on Windows (rename/write patterns can emit multiple events).
   try {
     let watchKickTimer = null;
-    fs.watch(jobDirs.pendingDir, { persistent: false }, () => {
+    // Use persistent watch so Node doesn't garbage-collect the watcher under low activity.
+    fs.watch(jobDirs.pendingDir, { persistent: true }, () => {
       if (watchKickTimer) return;
       watchKickTimer = setTimeout(() => {
         watchKickTimer = null;
