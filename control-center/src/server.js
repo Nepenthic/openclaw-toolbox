@@ -812,11 +812,20 @@ function startWorkerLoop() {
     running = true;
     try {
       // Recover from worker crashes: cleanup temp files + move stale RUNNING jobs back to pending.
-      const tmpRemoved = jobs.cleanupTmp(jobDirs);
-      if (tmpRemoved > 0) audit('worker.cleanupTmp', null, { ok: true, count: tmpRemoved });
+      // Keep these best-effort so a single filesystem hiccup doesn't block job draining.
+      try {
+        const tmpRemoved = jobs.cleanupTmp(jobDirs);
+        if (tmpRemoved > 0) audit('worker.cleanupTmp', null, { ok: true, count: tmpRemoved });
+      } catch (e) {
+        audit('worker.cleanupTmp', null, { ok: false, error: e?.message || String(e) });
+      }
 
-      const requeued = jobs.requeueStale(jobDirs, { staleMs: 10 * 60 * 1000, maxAttempts: 3 });
-      if (requeued > 0) audit('worker.requeueStale', null, { ok: true, count: requeued });
+      try {
+        const requeued = jobs.requeueStale(jobDirs, { staleMs: 10 * 60 * 1000, maxAttempts: 3 });
+        if (requeued > 0) audit('worker.requeueStale', null, { ok: true, count: requeued });
+      } catch (e) {
+        audit('worker.requeueStale', null, { ok: false, error: e?.message || String(e) });
+      }
 
       // Drain a few jobs per tick to reduce latency.
       let drained = 0;
