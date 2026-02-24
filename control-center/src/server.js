@@ -433,6 +433,7 @@ app.get('/api/jobs/summary', async (req, reply) => {
       lastTickAt: workerState.lastTickAt,
       lastDrained: workerState.lastDrained,
       lastError: workerState.lastError,
+      lastJob: workerState.lastJob,
     },
   });
 });
@@ -651,6 +652,7 @@ const workerState = {
   lastTickAt: null,
   lastDrained: 0,
   lastError: null,
+  lastJob: null, // { id, type, status, ts }
 };
 
 const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || `http://127.0.0.1:${process.env.OPENCLAW_GATEWAY_PORT || 18789}`;
@@ -886,6 +888,7 @@ async function processOneJob() {
   if (!claimed) return false;
   const job = claimed.job;
 
+  workerState.lastJob = { id: job.id, type: job.type, status: 'CLAIMED', ts: Date.now() };
   audit('worker.claim', null, { ok: true, jobId: job.id, type: job.type, attempts: job.attempts || 1, nodeId: job.nodeId || null });
 
   try {
@@ -901,16 +904,19 @@ async function processOneJob() {
     }
 
     if (r && r.requeue) {
+      workerState.lastJob = { id: job.id, type: job.type, status: 'REQUEUED', ts: Date.now() };
       const next = jobs.requeue(jobDirs, job, { error: r.error || 'REQUEUED', delayMs: r.delayMs || 0 });
       audit('worker.requeue', null, { ok: true, jobId: job.id, type: job.type, error: r.error || 'REQUEUED', delayMs: r.delayMs || 0, attempts: next.attempts || job.attempts || 1 });
       return true;
     }
 
     const fin = { ok: !!r.ok, output: r.output || null, error: r.ok ? null : (r.error || 'FAILED') };
+    workerState.lastJob = { id: job.id, type: job.type, status: fin.ok ? 'DONE' : 'FAILED', ts: Date.now() };
     jobs.finish(jobDirs, job, fin);
     audit('worker.finish', null, { ok: fin.ok, jobId: job.id, type: job.type, error: fin.error });
   } catch (e) {
     const fin = { ok: false, error: e?.message || String(e) };
+    workerState.lastJob = { id: job.id, type: job.type, status: 'FAILED', ts: Date.now(), error: fin.error };
     jobs.finish(jobDirs, job, fin);
     audit('worker.finish', null, { ok: false, jobId: job.id, type: job.type, error: fin.error });
   }
