@@ -503,7 +503,8 @@ app.get('/api/jobs/summary', async (req, reply) => {
       const n = Math.min(readyPendingSampleLimit, files.length);
       for (let i = 0; i < n; i++) {
         const p = path.join(jobDirs.pendingDir, files[i]);
-        const j = readJson(p, null);
+        // Reliability: pending job files can be briefly locked by AV/indexers.
+        const j = readJsonRetry(p, null, { attempts: 2, delayMs: 5 });
         const nb = Date.parse(j?.notBefore || '') || 0;
         if (nb && nb > now) {
           if (!nextNotBefore || nb < nextNotBefore) nextNotBefore = nb;
