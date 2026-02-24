@@ -429,6 +429,25 @@ app.post('/api/jobs/kick', async (req, reply) => {
   }
 });
 
+// Manual recovery: requeue stale RUNNING jobs (crash recovery without waiting for the next worker tick).
+app.post('/api/jobs/requeue-stale', async (req, reply) => {
+  if (!requireAuth(req, reply)) return;
+  const body = req.body || {};
+  const staleMs = Math.max(10_000, Math.min(24 * 60 * 60 * 1000, Number(body.staleMs || 10 * 60 * 1000)));
+  const maxAttempts = Math.max(1, Math.min(20, Number(body.maxAttempts || 3)));
+
+  try {
+    const moved = jobs.requeueStale(jobDirs, { staleMs, maxAttempts });
+    audit('jobs.requeueStale', req, { ok: true, moved, staleMs, maxAttempts });
+    // Kick worker so any requeued jobs get picked up immediately.
+    try { if (workerKick) workerKick(); } catch {}
+    return reply.send({ ok: true, moved, staleMs, maxAttempts });
+  } catch (e) {
+    audit('jobs.requeueStale', req, { ok: false, error: e?.message || String(e) });
+    return reply.code(500).send({ ok: false, error: 'REQUEUE_FAILED' });
+  }
+});
+
 app.post('/api/unreal/create', async (req, reply) => {
   if (!requireAuth(req, reply)) return;
   const body = req.body || {};
