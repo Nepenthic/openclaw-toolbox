@@ -408,7 +408,8 @@ function retryFailed(jobDirs, id, { delayMs = 0 } = {}){
   const from = jobPathFor(jobDirs, 'FAILED', id);
   if (!fs.existsSync(from)) return null;
 
-  const j = readJson(from);
+  // Reliability: FAILED jobs may be briefly locked by AV/indexers; use the same tiny read retry.
+  const j = readJsonRetry(from, null, { attempts: 6, delayMs: 25 });
   if (!j) return null;
 
   const to = jobPathFor(jobDirs, 'PENDING', id);
