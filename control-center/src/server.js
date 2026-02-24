@@ -695,10 +695,15 @@ function startWorkerLoop() {
   workerKick();
 
   // Bonus reliability/latency improvement: kick the worker as soon as a new job file lands.
-  // This reduces the chance of “stuck pending” when polling intervals are long or the event loop is busy.
+  // Debounce to avoid a storm of kicks on Windows (rename/write patterns can emit multiple events).
   try {
+    let watchKickTimer = null;
     fs.watch(jobDirs.pendingDir, { persistent: false }, () => {
-      try { workerKick(); } catch {}
+      if (watchKickTimer) return;
+      watchKickTimer = setTimeout(() => {
+        watchKickTimer = null;
+        try { workerKick(); } catch {}
+      }, 200);
     });
   } catch (e) {
     app.log.warn({ err: e?.message || String(e) }, 'fs.watch pendingDir failed; falling back to polling only');
