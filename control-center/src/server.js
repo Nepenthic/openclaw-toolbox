@@ -542,6 +542,63 @@ app.post('/api/unreal/projectfiles', async (req, reply) => {
   reply.send({ ok: true, job });
 });
 
+// Stubs (queued now; implementation coming): build + package.
+app.post('/api/unreal/build', async (req, reply) => {
+  if (!requireAuth(req, reply)) return;
+  const body = req.body || {};
+  const uproject = String(body.uproject || '').trim();
+  const ueRoot = String(body.ueRoot || 'D:\\UE_5.7').trim();
+  const config = String(body.config || 'Development').trim();
+
+  if (!uproject || !/\.uproject$/i.test(uproject) || uproject.length > 400) {
+    audit('jobs.enqueue', req, { ok: false, type: 'unreal.build', error: 'BAD_UPROJECT' });
+    return reply.code(400).send({ ok: false, error: 'BAD_UPROJECT' });
+  }
+  if (!ueRoot || ueRoot.length > 200) {
+    audit('jobs.enqueue', req, { ok: false, type: 'unreal.build', error: 'BAD_UEROOT' });
+    return reply.code(400).send({ ok: false, error: 'BAD_UEROOT' });
+  }
+
+  const job = enqueueJob(req, {
+    type: 'unreal.build',
+    uproject,
+    ueRoot,
+    config,
+    nodeId: process.env.OPENCLAW_NODE_ID || undefined,
+  }, { uproject, config });
+
+  reply.send({ ok: true, job });
+});
+
+app.post('/api/unreal/package', async (req, reply) => {
+  if (!requireAuth(req, reply)) return;
+  const body = req.body || {};
+  const uproject = String(body.uproject || '').trim();
+  const ueRoot = String(body.ueRoot || 'D:\\UE_5.7').trim();
+  const platform = String(body.platform || 'Win64').trim();
+  const config = String(body.config || 'Development').trim();
+
+  if (!uproject || !/\.uproject$/i.test(uproject) || uproject.length > 400) {
+    audit('jobs.enqueue', req, { ok: false, type: 'unreal.package', error: 'BAD_UPROJECT' });
+    return reply.code(400).send({ ok: false, error: 'BAD_UPROJECT' });
+  }
+  if (!ueRoot || ueRoot.length > 200) {
+    audit('jobs.enqueue', req, { ok: false, type: 'unreal.package', error: 'BAD_UEROOT' });
+    return reply.code(400).send({ ok: false, error: 'BAD_UEROOT' });
+  }
+
+  const job = enqueueJob(req, {
+    type: 'unreal.package',
+    uproject,
+    ueRoot,
+    platform,
+    config,
+    nodeId: process.env.OPENCLAW_NODE_ID || undefined,
+  }, { uproject, platform, config });
+
+  reply.send({ ok: true, job });
+});
+
 // --- Background worker (processes pending jobs) ---
 // This avoids relying on `openclaw ...` CLI, and instead prefers calling the Gateway directly.
 const workerEnabled = (process.env.CONTROL_CENTER_WORKER_ENABLED || '1') !== '0';
@@ -691,6 +748,15 @@ async function processOneJob() {
       r = await runUnrealCreate(job);
     } else if (job.type === 'unreal.projectfiles') {
       r = await runUnrealProjectFiles(job);
+    } else if (job.type === 'unreal.build' || job.type === 'unreal.package') {
+      // Stub behavior: requeue a few times (so the job doesn't get burned immediately)
+      // then fail with NOT_IMPLEMENTED so the queue doesn't loop forever.
+      const attempts = Number(job.attempts || 1);
+      if (attempts <= 3) {
+        r = { ok: false, requeue: true, delayMs: 5 * 60_000, error: 'NOT_IMPLEMENTED' };
+      } else {
+        r = { ok: false, error: 'NOT_IMPLEMENTED' };
+      }
     }
 
     if (r && r.requeue) {
