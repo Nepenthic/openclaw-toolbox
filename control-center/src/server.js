@@ -697,6 +697,16 @@ async function runUnrealCreate(job) {
       return { ok: false, requeue: true, delayMs: 60_000, error: 'NO_GATEWAY_TOKEN', output: r };
     }
 
+    // Reliability: transient Gateway issues shouldn’t immediately fail the job.
+    // Requeue a few times with a small backoff.
+    if (!r.ok && (r.error === 'TIMEOUT' || r.error === 'FETCH_FAILED')) {
+      const attempts = Number(job.attempts || 1);
+      const backoffs = [60_000, 2 * 60_000, 5 * 60_000];
+      if (attempts <= backoffs.length) {
+        return { ok: false, requeue: true, delayMs: backoffs[attempts - 1], error: r.error, output: r };
+      }
+    }
+
     if (!r.ok) {
       return { ok: false, error: 'NODES_RUN_FAILED', output: r };
     }
@@ -732,6 +742,17 @@ async function runUnrealProjectFiles(job) {
     if (!r.ok && r.error === 'NO_GATEWAY_TOKEN') {
       return { ok: false, requeue: true, delayMs: 60_000, error: 'NO_GATEWAY_TOKEN', output: r };
     }
+
+    // Reliability: transient Gateway issues shouldn’t immediately fail the job.
+    // Requeue a few times with a small backoff.
+    if (!r.ok && (r.error === 'TIMEOUT' || r.error === 'FETCH_FAILED')) {
+      const attempts = Number(job.attempts || 1);
+      const backoffs = [60_000, 2 * 60_000, 5 * 60_000];
+      if (attempts <= backoffs.length) {
+        return { ok: false, requeue: true, delayMs: backoffs[attempts - 1], error: r.error, output: r };
+      }
+    }
+
     if (!r.ok) return { ok: false, error: 'NODES_RUN_FAILED', output: r };
     return { ok: true, output: r.json };
   }
