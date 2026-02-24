@@ -795,6 +795,83 @@ async function runUnrealProjectFiles(job) {
   });
 }
 
+function uprojectName(uproject){
+  try { return path.basename(String(uproject || ''), '.uproject'); } catch { return ''; }
+}
+
+async function runCmdLine(job, cmdLine){
+  // Runs a command line via nodes.run (preferred) or locally.
+  // cmdLine should be fully quoted for cmd.exe.
+  const args = ['cmd', '/c', cmdLine];
+
+  if (job.nodeId) {
+    const r = await nodesRun({ node: job.nodeId, command: args });
+
+    if (!r.ok && r.error === 'NO_GATEWAY_TOKEN') {
+      return { ok: false, requeue: true, delayMs: 60_000, error: 'NO_GATEWAY_TOKEN', output: r };
+    }
+
+    // Reliability: transient Gateway issues shouldn’t immediately fail the job.
+    if (!r.ok && (r.error === 'TIMEOUT' || r.error === 'FETCH_FAILED')) {
+      const attempts = Number(job.attempts || 1);
+      const backoffs = [60_000, 2 * 60_000, 5 * 60_000];
+      if (attempts <= backoffs.length) {
+        return { ok: false, requeue: true, delayMs: backoffs[attempts - 1], error: r.error, output: r };
+      }
+    }
+
+    if (!r.ok) return { ok: false, error: 'NODES_RUN_FAILED', output: r };
+    return { ok: true, output: r.json };
+  }
+
+  // Local fallback.
+  const { spawn } = require('node:child_process');
+  return await new Promise((resolve) => {
+    const p = spawn(args[0], args.slice(1), { windowsHide: true });
+    let out = '';
+    let err = '';
+    p.stdout.on('data', d => out += d.toString('utf8'));
+    p.stderr.on('data', d => err += d.toString('utf8'));
+    p.on('exit', (code) => {
+      if (code === 0) return resolve({ ok: true, output: { code, out: out.trim() } });
+      return resolve({ ok: false, error: `EXIT_${code}`, output: { code, out: out.trim(), err: err.trim() } });
+    });
+  });
+}
+
+async function runUnrealBuild(job){
+  // Minimal compile using UE's Build.bat (UBT wrapper).
+  const ueRoot = String(job.ueRoot || 'D:\\UE_5.7').trim();
+  const uproject = String(job.uproject || '').trim();
+  const config = String(job.config || 'Development').trim();
+
+  const project = uprojectName(uproject);
+  if (!project) return { ok: false, error: 'BAD_UPROJECT_NAME' };
+
+  const target = String(job.target || `${project}Editor`).trim();
+  const bat = path.join(ueRoot, 'Engine', 'Build', 'BatchFiles', 'Build.bat');
+
+  const cmdLine = `"${bat}" ${target} Win64 ${config} -Project="${uproject}" -WaitMutex -FromMsBuild`;
+  return await runCmdLine(job, cmdLine);
+}
+
+async function runUnrealPackage(job){
+  // Minimal packaging via UAT BuildCookRun.
+  const ueRoot = String(job.ueRoot || 'D:\\UE_5.7').trim();
+  const uproject = String(job.uproject || '').trim();
+  const platform = String(job.platform || 'Win64').trim();
+  const config = String(job.config || 'Development').trim();
+
+  const uat = path.join(ueRoot, 'Engine', 'Build', 'BatchFiles', 'RunUAT.bat');
+
+  // Default archive dir next to project to keep outputs contained.
+  const projDir = path.dirname(uproject);
+  const archiveDir = String(job.archiveDir || path.join(projDir, 'Saved', 'ClawForgePackage', platform, config)).trim();
+
+  const cmdLine = `"${uat}" BuildCookRun -project="${uproject}" -noP4 -platform=${platform} -clientconfig=${config} -build -cook -stage -pak -archive -archivedirectory="${archiveDir}"`;
+  return await runCmdLine(job, cmdLine);
+}
+
 async function processOneJob() {
   const claimed = jobs.claimNext(jobDirs);
   if (!claimed) return false;
@@ -808,15 +885,10 @@ async function processOneJob() {
       r = await runUnrealCreate(job);
     } else if (job.type === 'unreal.projectfiles') {
       r = await runUnrealProjectFiles(job);
-    } else if (job.type === 'unreal.build' || job.type === 'unreal.package') {
-      // Stub behavior: requeue a few times (so the job doesn't get burned immediately)
-      // then fail with NOT_IMPLEMENTED so the queue doesn't loop forever.
-      const attempts = Number(job.attempts || 1);
-      if (attempts <= 3) {
-        r = { ok: false, requeue: true, delayMs: 5 * 60_000, error: 'NOT_IMPLEMENTED' };
-      } else {
-        r = { ok: false, error: 'NOT_IMPLEMENTED' };
-      }
+    } else if (job.type === 'unreal.build') {
+      r = await runUnrealBuild(job);
+    } else if (job.type === 'unreal.package') {
+      r = await runUnrealPackage(job);
     }
 
     if (r && r.requeue) {
