@@ -179,7 +179,7 @@
           <option value="FAILED">Failed</option>
         </select>
       </label>
-      <input id="jobsFilter" placeholder="Filter id/type/path…" size="22" oninput="applyJobsFilter()" />
+      <input id="jobsFilter" placeholder="Filter id/type/node/error…" size="22" oninput="applyJobsFilter()" />
       <span class="muted">Auto-refresh: <span id="jobsAutoOn">on</span></span>
     </div>
     <div id="jobsPanel"></div>
@@ -714,7 +714,9 @@ function renderJobsFromCache(){
       const type = String(j.type || '').toLowerCase();
       const uproject = String(j.uproject || '').toLowerCase();
       const name = String(j.name || '').toLowerCase();
-      return id.includes(q) || type.includes(q) || uproject.includes(q) || name.includes(q);
+      const nodeId = String(j.nodeId || j.workerId || '').toLowerCase();
+      const err = String(j.result?.error || '').toLowerCase();
+      return id.includes(q) || type.includes(q) || uproject.includes(q) || name.includes(q) || nodeId.includes(q) || err.includes(q);
     });
   }
 
