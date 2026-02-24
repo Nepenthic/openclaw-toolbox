@@ -122,7 +122,16 @@ function claimNext(jobDirs){
         startedAt: nowIso(),
         updatedAt: nowIso(),
       };
-      writeJsonAtomic(to, claimed);
+
+      // Best-effort: if the atomic rewrite fails (Windows rename edge cases),
+      // fall back to a normal write. A partially-updated job in processing/
+      // can otherwise look “stuck” (missing startedAt/attempts).
+      try {
+        writeJsonAtomic(to, claimed);
+      } catch {
+        try { writeJson(to, claimed); } catch {}
+      }
+
       return { job: claimed, path: to };
     } catch {
       // Someone else claimed it; try next.
