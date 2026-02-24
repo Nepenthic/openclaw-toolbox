@@ -519,7 +519,7 @@ function renderJobs(items, summaryCounts=null){
     const full = esc(JSON.stringify(j, null, 2));
 
     const retryBtn = (isFailed && rawId)
-      ? `<button class="secondary" style="padding:6px 10px" onclick="retryJob('${esc(rawId)}')">Retry</button>`
+      ? `<button class="secondary" style="padding:6px 10px" onclick="retryJob(${JSON.stringify(rawId)})">Retry</button>`
       : '';
 
     return `
