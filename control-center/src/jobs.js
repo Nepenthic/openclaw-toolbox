@@ -392,4 +392,34 @@ function requeue(jobDirs, job, { error = null, delayMs = 0 } = {}){
   return next;
 }
 
-module.exports = { init, enqueue, list, get, claimNext, finish, requeue, requeueStale, cleanupTmp };
+function retryFailed(jobDirs, id, { delayMs = 0 } = {}){
+  const from = jobPathFor(jobDirs, 'FAILED', id);
+  if (!fs.existsSync(from)) return null;
+
+  const j = readJson(from);
+  if (!j) return null;
+
+  const to = jobPathFor(jobDirs, 'PENDING', id);
+  const next = {
+    ...j,
+    status: 'PENDING',
+    updatedAt: nowIso(),
+    retriedAt: nowIso(),
+    ...(delayMs && delayMs > 0 ? { notBefore: new Date(Date.now() + delayMs).toISOString() } : {}),
+    // Clear terminal markers/result so the worker treats this as fresh.
+    finishedAt: undefined,
+    startedAt: undefined,
+    result: null,
+  };
+
+  // JSON stringify will drop undefined keys; this is intentional.
+  try {
+    writeJsonAtomic(to, next);
+  } catch {
+    try { writeJson(to, next); } catch {}
+  }
+  try { fs.unlinkSync(from); } catch {}
+  return next;
+}
+
+module.exports = { init, enqueue, list, get, claimNext, finish, requeue, requeueStale, cleanupTmp, retryFailed };

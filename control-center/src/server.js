@@ -463,6 +463,27 @@ app.post('/api/jobs/cleanup-tmp', async (req, reply) => {
   }
 });
 
+// Manual retry: move a FAILED job back to PENDING (keeps same id).
+app.post('/api/jobs/:id/retry', async (req, reply) => {
+  if (!requireAuth(req, reply)) return;
+  const id = String(req.params.id || '').trim();
+  if (!id) return reply.code(400).send({ ok: false, error: 'BAD_ID' });
+
+  try {
+    const next = jobs.retryFailed(jobDirs, id);
+    if (!next) {
+      audit('jobs.retryFailed', req, { ok: false, jobId: id, error: 'NOT_FAILED_OR_NOT_FOUND' });
+      return reply.code(404).send({ ok: false, error: 'NOT_FAILED_OR_NOT_FOUND' });
+    }
+    audit('jobs.retryFailed', req, { ok: true, jobId: id, type: next.type || null });
+    try { if (workerKick) workerKick(); } catch {}
+    return reply.send({ ok: true, job: next });
+  } catch (e) {
+    audit('jobs.retryFailed', req, { ok: false, jobId: id, error: e?.message || String(e) });
+    return reply.code(500).send({ ok: false, error: 'RETRY_FAILED' });
+  }
+});
+
 app.post('/api/unreal/create', async (req, reply) => {
   if (!requireAuth(req, reply)) return;
   const body = req.body || {};
