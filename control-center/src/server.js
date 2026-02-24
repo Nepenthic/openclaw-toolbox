@@ -870,8 +870,9 @@ function startWorkerLoop() {
       // moving under bursts without making a single tick unbounded.
       if (drained >= workerDrainPerTick) {
         try {
-          const hasPending = fs.readdirSync(jobDirs.pendingDir).some(f => f.endsWith('.json'));
-          if (hasPending) rerunRequested = true;
+          // Only rerun immediately if there are *claimable* pending jobs.
+          // Prevents a tight loop when the queue contains only delayed (notBefore) jobs.
+          if (jobs.hasReadyPending(jobDirs)) rerunRequested = true;
         } catch {
           // ignore
         }

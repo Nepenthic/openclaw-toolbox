@@ -422,4 +422,28 @@ function retryFailed(jobDirs, id, { delayMs = 0 } = {}){
   return next;
 }
 
-module.exports = { init, enqueue, list, get, claimNext, finish, requeue, requeueStale, cleanupTmp, retryFailed };
+function hasReadyPending(jobDirs, { sampleLimit = 25 } = {}) {
+  // Best-effort: determine if there is at least one claimable pending job.
+  // Avoids a tight worker loop when only delayed (notBefore) jobs are present.
+  let files = [];
+  try { files = fs.readdirSync(jobDirs.pendingDir); } catch { files = []; }
+  files = files.filter(f => f.endsWith('.json'));
+  files.sort((a, b) => a.localeCompare(b));
+
+  const now = Date.now();
+  const n = Math.min(sampleLimit, files.length);
+  for (let i = 0; i < n; i++) {
+    const p = path.join(jobDirs.pendingDir, files[i]);
+    const j = readJsonRetry(p, null, { attempts: 2, delayMs: 5 });
+    if (!j) continue;
+    try {
+      const nb = Date.parse(j.notBefore || '');
+      if (!nb || now >= nb) return true;
+    } catch {
+      return true; // if parsing fails, treat as ready so the worker can quarantine it
+    }
+  }
+  return false;
+}
+
+module.exports = { init, enqueue, list, get, claimNext, finish, requeue, requeueStale, cleanupTmp, retryFailed, hasReadyPending };
