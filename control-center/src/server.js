@@ -678,9 +678,12 @@ function startWorkerLoop() {
     }
 
     // If kicks arrived while we were running, do one extra pass immediately.
+    // Avoid recursion here: in bursty scenarios this can grow the call stack.
     if (rerunRequested) {
       rerunRequested = false;
-      return tick();
+      setImmediate(() => {
+        tick().catch((e) => app.log.error(e, 'Worker tick error'));
+      });
     }
   };
 
