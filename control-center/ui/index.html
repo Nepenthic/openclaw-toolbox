@@ -408,8 +408,14 @@ async function loadNodesLive(){
 
   if(r.ok){
     nodesLastOkAt = Date.now();
-    setBanner('nodesBanner', '', '');
     const items = normItems(r.data);
+
+    if (!items.length) {
+      setBanner('nodesBanner', `<strong>No nodes found.</strong> If you expected devices here, check Gateway pairing + that the correct gateway URL is configured.`, 'warn');
+    } else {
+      setBanner('nodesBanner', '', '');
+    }
+
     renderNodes(items);
   } else {
     nodesLastErr = (r.status === 0) ? 'network error' : `HTTP ${r.status}`;
