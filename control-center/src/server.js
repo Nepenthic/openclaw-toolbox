@@ -71,6 +71,8 @@ function audit(event, req, extra = {}) {
     const rec = {
       ts: new Date().toISOString(),
       event,
+      host: os.hostname(),
+      pid: process.pid,
       ip: req?.ip,
       ua: req?.headers?.['user-agent'],
       ...extra,
