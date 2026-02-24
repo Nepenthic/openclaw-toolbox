@@ -485,8 +485,18 @@ function enqueueJob(req, jobSpec, auditExtra = {}) {
 
 app.post('/api/jobs/kick', async (req, reply) => {
   if (!requireAuth(req, reply)) return;
+
+  if (!workerEnabled) {
+    audit('jobs.kick', req, { ok: false, error: 'WORKER_DISABLED' });
+    return reply.code(409).send({ ok: false, error: 'WORKER_DISABLED' });
+  }
+  if (!workerKick) {
+    audit('jobs.kick', req, { ok: false, error: 'WORKER_NOT_READY' });
+    return reply.code(503).send({ ok: false, error: 'WORKER_NOT_READY' });
+  }
+
   try {
-    if (workerKick) workerKick();
+    workerKick();
     audit('jobs.kick', req, { ok: true });
     return reply.send({ ok: true });
   } catch (e) {
