@@ -152,6 +152,15 @@
     <h2>Jobs</h2>
     <div class="row">
       <button onclick="loadJobs()">Refresh</button>
+      <label class="muted">Show:
+        <select id="jobsStatus" onchange="loadJobs()">
+          <option value="">All</option>
+          <option value="PENDING">Pending</option>
+          <option value="RUNNING">Running</option>
+          <option value="DONE">Done</option>
+          <option value="FAILED">Failed</option>
+        </select>
+      </label>
       <span class="muted">Auto-refresh: <span id="jobsAutoOn">on</span></span>
     </div>
     <div id="jobsPanel"></div>
@@ -420,10 +429,24 @@ function jobPill(status){
   return { cls: 'warn', label: 'PENDING' };
 }
 
-function renderJobs(items){
+function renderJobs(items, summaryCounts=null){
   const el = document.getElementById('jobsPanel');
   if(!el) return;
   if(!items.length){
+    // Still show summary chips if we have them.
+    const c = summaryCounts;
+    if(c){
+      el.innerHTML = `
+        <div class="row tight" style="margin-bottom:10px">
+          <span class="pill warn"><span class="dot"></span><span class="code">PENDING ${c.pending||0}</span></span>
+          <span class="pill warn"><span class="dot"></span><span class="code">RUNNING ${c.running||0}</span></span>
+          <span class="pill good"><span class="dot"></span><span class="code">DONE ${c.done||0}</span></span>
+          <span class="pill bad"><span class="dot"></span><span class="code">FAILED ${c.failed||0}</span></span>
+        </div>
+        <div class="muted">No jobs in this view.</div>
+      `;
+      return;
+    }
     el.innerHTML = '<div class="muted">No jobs yet.</div>';
     return;
   }
@@ -447,12 +470,13 @@ function renderJobs(items){
   const counts = { PENDING:0, RUNNING:0, DONE:0, FAILED:0 };
   for(const j of jobs) counts[normStatus(j)]++;
 
+  const sc = summaryCounts || null;
   const head = `
     <div class="row tight" style="margin-bottom:10px">
-      <span class="pill warn"><span class="dot"></span><span class="code">PENDING ${counts.PENDING}</span></span>
-      <span class="pill warn"><span class="dot"></span><span class="code">RUNNING ${counts.RUNNING}</span></span>
-      <span class="pill good"><span class="dot"></span><span class="code">DONE ${counts.DONE}</span></span>
-      <span class="pill bad"><span class="dot"></span><span class="code">FAILED ${counts.FAILED}</span></span>
+      <span class="pill warn"><span class="dot"></span><span class="code">PENDING ${(sc ? sc.pending : counts.PENDING) || 0}</span></span>
+      <span class="pill warn"><span class="dot"></span><span class="code">RUNNING ${(sc ? sc.running : counts.RUNNING) || 0}</span></span>
+      <span class="pill good"><span class="dot"></span><span class="code">DONE ${(sc ? sc.done : counts.DONE) || 0}</span></span>
+      <span class="pill bad"><span class="dot"></span><span class="code">FAILED ${(sc ? sc.failed : counts.FAILED) || 0}</span></span>
     </div>
   `;
 
@@ -496,10 +520,18 @@ function renderJobs(items){
 }
 
 async function loadJobs(){
-  const r = await j('/api/jobs');
-  document.getElementById('jobsOut').textContent = JSON.stringify(r, null, 2);
+  const status = (document.getElementById('jobsStatus')?.value || '').trim();
+
+  // Pull summary counts separately so filters still show overall queue health.
+  const s = await j('/api/jobs/summary');
+  const summary = (s.ok && s.data?.counts) ? s.data.counts : null;
+
+  const url = status ? (`/api/jobs?status=${encodeURIComponent(status)}`) : '/api/jobs';
+  const r = await j(url);
+  document.getElementById('jobsOut').textContent = JSON.stringify({ summary: s, list: r }, null, 2);
+
   const items = r.ok ? (r.data?.jobs || []) : [];
-  renderJobs(items);
+  renderJobs(items, summary);
 }
 
 async function createProj(kind){
