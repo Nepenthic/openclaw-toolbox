@@ -558,8 +558,14 @@ function startWorkerLoop() {
   app.log.info({ workerPollMs, workerDrainPerTick, gatewayUrl, nodesRunPath, hasGatewayToken: !!gatewayToken }, 'Worker loop starting');
 
   let running = false;
+  let rerunRequested = false;
   const tick = async () => {
-    if (running) return;
+    // If a tick is already running, remember to run again once it finishes.
+    if (running) {
+      rerunRequested = true;
+      return;
+    }
+
     running = true;
     try {
       // Recover from worker crashes: move stale RUNNING jobs back to pending.
@@ -573,6 +579,12 @@ function startWorkerLoop() {
       }
     } finally {
       running = false;
+    }
+
+    // If kicks arrived while we were running, do one extra pass immediately.
+    if (rerunRequested) {
+      rerunRequested = false;
+      return tick();
     }
   };
 
