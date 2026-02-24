@@ -1076,13 +1076,13 @@ function startWorkerLoop() {
   let rerunRequested = false;
   let rerunDelayMs = 0;
   let rerunForced = false;
-  const tick = async () => {
+  const tick = async ({ forced = false } = {}) => {
     // If a tick is already running, remember to run again once it finishes.
-    // Mark this as a "forced" rerun (e.g. API kick or fs.watch) so we don't
-    // unnecessarily add backoff once the current tick finishes.
+    // Only treat it as "forced" when the trigger is explicit (API kick/fs.watch),
+    // not for the normal poll interval.
     if (running) {
       rerunRequested = true;
-      rerunForced = true;
+      if (forced) rerunForced = true;
       return;
     }
 
@@ -1201,23 +1201,23 @@ function startWorkerLoop() {
     // If kicks arrived while we were running, do one extra pass immediately.
     // Avoid recursion here: in bursty scenarios this can grow the call stack.
     if (rerunRequested) {
+      const forced = rerunForced;
       let delay = rerunDelayMs;
       // If we got kicked while running but didn’t detect any ready pending work, avoid a busy-loop.
       // (fs.watch can emit noisy events; multiple kicks can stack up.)
-      // NOTE: if the rerun was explicitly forced (API kick/fs.watch), prefer immediate rerun.
-      if (!rerunForced && delay === 0 && drained === 0 && !readyPendingHint) delay = 250;
+      if (!forced && delay === 0 && drained === 0 && !readyPendingHint) delay = 250;
       rerunRequested = false;
       rerunDelayMs = 0;
       rerunForced = false;
       const schedule = delay > 0 ? setTimeout : setImmediate;
       schedule(() => {
-        tick().catch((e) => app.log.error(e, 'Worker tick error'));
+        tick({ forced }).catch((e) => app.log.error(e, 'Worker tick error'));
       }, delay);
     }
   };
 
   // Expose a best-effort "kick" for API handlers.
-  workerKick = () => tick().catch((e) => app.log.error(e, 'Worker tick error'));
+  workerKick = () => tick({ forced: true }).catch((e) => app.log.error(e, 'Worker tick error'));
 
   // Kick once immediately so newly-started workers don't wait a full poll interval.
   workerKick();
@@ -1241,7 +1241,7 @@ function startWorkerLoop() {
   }
 
   const interval = setInterval(() => {
-    tick().catch((e) => app.log.error(e, 'Worker tick error'));
+    tick({ forced: false }).catch((e) => app.log.error(e, 'Worker tick error'));
   }, workerPollMs);
   // Allow clean shutdowns (worker loop should not prevent process exit).
   try { interval.unref?.(); } catch {}
