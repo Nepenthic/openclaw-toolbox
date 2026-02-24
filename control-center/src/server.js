@@ -979,6 +979,7 @@ function startWorkerLoop() {
 
   let running = false;
   let rerunRequested = false;
+  let rerunDelayMs = 0;
   const tick = async () => {
     // If a tick is already running, remember to run again once it finishes.
     if (running) {
@@ -1034,7 +1035,11 @@ function startWorkerLoop() {
       // immediate retry instead of waiting for the next poll interval.
       if (drained === 0) {
         try {
-          if (jobs.hasReadyPending(jobDirs, { sampleLimit: readyPendingSampleLimit })) rerunRequested = true;
+          if (jobs.hasReadyPending(jobDirs, { sampleLimit: readyPendingSampleLimit })) {
+            rerunRequested = true;
+            // Avoid a tight setImmediate loop on transient Windows/AV contention.
+            rerunDelayMs = Math.max(rerunDelayMs, 100);
+          }
         } catch {
           // ignore
         }
@@ -1049,10 +1054,13 @@ function startWorkerLoop() {
     // If kicks arrived while we were running, do one extra pass immediately.
     // Avoid recursion here: in bursty scenarios this can grow the call stack.
     if (rerunRequested) {
+      const delay = rerunDelayMs;
       rerunRequested = false;
-      setImmediate(() => {
+      rerunDelayMs = 0;
+      const schedule = delay > 0 ? setTimeout : setImmediate;
+      schedule(() => {
         tick().catch((e) => app.log.error(e, 'Worker tick error'));
-      });
+      }, delay);
     }
   };
 
