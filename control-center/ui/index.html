@@ -455,7 +455,30 @@ async function loadAudit(){
   const r = await j('/api/audit/tail?limit=200');
   const el = document.getElementById('auditOut');
   if(!el) return;
-  el.textContent = JSON.stringify(r, null, 2);
+
+  if(!r.ok){
+    el.textContent = JSON.stringify(r, null, 2);
+    return;
+  }
+
+  const items = (r.data && Array.isArray(r.data.items)) ? r.data.items : [];
+  // Most-recent first.
+  items.reverse();
+
+  // Human-ish one-line summary, plus raw JSON underneath if needed.
+  const lines = items.map((x) => {
+    const ts = pick(x.ts, x.time, x.at, '');
+    const event = pick(x.event, x.type, 'event');
+    const method = pick(x.method, '');
+    const url = pick(x.url, x.path, '');
+    const ip = pick(x.ip, '');
+    const ok = (x.ok === true) ? 'ok' : (x.ok === false ? 'fail' : '');
+    const err = pick(x.error, x.err, '');
+    const tail = err ? ` · ${String(err)}` : '';
+    return `${ts} ${event}${ok ? ` (${ok})` : ''}${method || url ? ` · ${method} ${url}`.trimEnd() : ''}${ip ? ` · ${ip}` : ''}${tail}`.trim();
+  });
+
+  el.textContent = lines.join('\n');
 }
 
 function jobPill(status){
