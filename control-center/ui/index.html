@@ -130,6 +130,12 @@
       <button onclick="createProj('bp')">Create BP + Launch</button>
       <button onclick="createProj('cpp')">Create C++ + Launch</button>
     </div>
+    <div class="row" style="margin-top:10px">
+      <input id="uprojectPath" placeholder="Full path to .uproject (e.g. D:\\UnrealProjects\\MyGame\\MyGame.uproject)" size="70" />
+      <button class="secondary" onclick="genProjectFiles()">Generate project files</button>
+      <button class="secondary" onclick="queueBuild()">Queue build (stub)</button>
+      <button class="secondary" onclick="queuePackage()">Queue package (stub)</button>
+    </div>
     <div class="muted">Defaults: root D:\\UnrealProjects · templates TP_ThirdPersonBP / TP_ThirdPerson · UE root D:\\UE_5.7</div>
     <pre id="unrealOut"></pre>
   </div>
@@ -598,6 +604,27 @@ async function retryJob(id){
 async function createProj(kind){
   const name = document.getElementById('projName').value.trim();
   const r = await j('/api/unreal/create', { method:'POST', body: JSON.stringify({ name, kind }) });
+  document.getElementById('unrealOut').textContent = JSON.stringify(r, null, 2);
+  await loadJobs();
+}
+
+async function genProjectFiles(){
+  const uproject = document.getElementById('uprojectPath').value.trim();
+  const r = await j('/api/unreal/projectfiles', { method:'POST', body: JSON.stringify({ uproject }) });
+  document.getElementById('unrealOut').textContent = JSON.stringify(r, null, 2);
+  await loadJobs();
+}
+
+async function queueBuild(){
+  const uproject = document.getElementById('uprojectPath').value.trim();
+  const r = await j('/api/unreal/build', { method:'POST', body: JSON.stringify({ uproject }) });
+  document.getElementById('unrealOut').textContent = JSON.stringify(r, null, 2);
+  await loadJobs();
+}
+
+async function queuePackage(){
+  const uproject = document.getElementById('uprojectPath').value.trim();
+  const r = await j('/api/unreal/package', { method:'POST', body: JSON.stringify({ uproject }) });
   document.getElementById('unrealOut').textContent = JSON.stringify(r, null, 2);
   await loadJobs();
 }
