@@ -52,6 +52,23 @@ let secrets = readJson(secretsPath);
 // Rotate when it gets too big so a long-running LAN server doesn’t grow without bound.
 const auditPath = path.join(stateDir, 'audit.log');
 const auditMaxBytes = Number(process.env.CONTROL_CENTER_AUDIT_MAX_BYTES || (10 * 1024 * 1024)); // 10MB
+const auditMaxFiles = Math.max(1, Math.min(50, Number(process.env.CONTROL_CENTER_AUDIT_MAX_FILES || 5)));
+
+function pruneOldAuditFiles() {
+  try {
+    const files = fs.readdirSync(stateDir)
+      .filter(f => /^audit\..*\.log$/.test(f))
+      .sort();
+    const extra = files.length - auditMaxFiles;
+    if (extra <= 0) return;
+    for (let i = 0; i < extra; i++) {
+      try { fs.unlinkSync(path.join(stateDir, files[i])); } catch {}
+    }
+  } catch {
+    // ignore
+  }
+}
+
 function maybeRotateAudit() {
   try {
     const st = fs.statSync(auditPath);
@@ -61,6 +78,7 @@ function maybeRotateAudit() {
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const rotated = path.join(stateDir, `audit.${ts}.log`);
     fs.renameSync(auditPath, rotated);
+    pruneOldAuditFiles();
   } catch {
     // ignore: best-effort only
   }
