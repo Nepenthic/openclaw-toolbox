@@ -486,6 +486,9 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
       const rp = (readyPending === null || readyPending === undefined) ? '?' : (readyPending ? 'yes' : 'no');
       const wLine = w ? `Worker: ${wStatus} · lastTick ${fmtAgo(w.lastTickAt)} · drained ${w.lastDrained ?? 0} · readyPending ${rp}` : 'Worker: (not loaded)';
       const wErr = (w && w.lastError) ? `<div class="banner bad" style="margin-top:10px">Worker error: <span class="code">${esc(String(w.lastError))}</span></div>` : '';
+      const readyWarn = (readyPending && (c.pending||0) > 0 && w && w.enabled && (w.lastDrained ?? 0) === 0)
+        ? `<div class="banner warn" style="margin-top:10px">Ready pending jobs detected but worker drained 0 last tick — try <span class="code">Kick worker</span>.</div>`
+        : '';
 
       el.innerHTML = `
         <div class="row" style="justify-content:space-between;margin-bottom:10px;gap:10px">
@@ -498,6 +501,7 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
           <span class="pill ${wCls}"><span class="dot"></span><span class="code">${esc(wLine)}</span></span>
         </div>
         ${wErr}
+        ${readyWarn}
         <div class="muted">No jobs in this view.</div>
       `;
       return;
@@ -532,11 +536,15 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
   const rp = (readyPending === null || readyPending === undefined) ? '?' : (readyPending ? 'yes' : 'no');
   const wLine = w ? `Worker: ${wStatus} · lastTick ${fmtAgo(w.lastTickAt)} · drained ${w.lastDrained ?? 0} · readyPending ${rp}` : 'Worker: (not loaded)';
   const wErr = (w && w.lastError) ? `<div class="banner bad" style="margin-top:10px">Worker error: <span class="code">${esc(String(w.lastError))}</span></div>` : '';
+  const totalPending = (sc ? sc.pending : counts.PENDING) || 0;
+  const readyWarn = (readyPending && totalPending > 0 && w && w.enabled && (w.lastDrained ?? 0) === 0)
+    ? `<div class="banner warn" style="margin-top:10px">Ready pending jobs detected but worker drained 0 last tick — try <span class="code">Kick worker</span>.</div>`
+    : '';
 
   const head = `
     <div class="row" style="justify-content:space-between;margin-bottom:10px;gap:10px">
       <div class="row tight">
-        <span class="pill warn clickable" onclick="setJobsFilter('PENDING')"><span class="dot"></span><span class="code">PENDING ${(sc ? sc.pending : counts.PENDING) || 0}</span></span>
+        <span class="pill warn clickable" onclick="setJobsFilter('PENDING')"><span class="dot"></span><span class="code">PENDING ${totalPending}</span></span>
         <span class="pill warn clickable" onclick="setJobsFilter('RUNNING')"><span class="dot"></span><span class="code">RUNNING ${(sc ? sc.running : counts.RUNNING) || 0}</span></span>
         <span class="pill good clickable" onclick="setJobsFilter('DONE')"><span class="dot"></span><span class="code">DONE ${(sc ? sc.done : counts.DONE) || 0}</span></span>
         <span class="pill bad clickable" onclick="setJobsFilter('FAILED')"><span class="dot"></span><span class="code">FAILED ${(sc ? sc.failed : counts.FAILED) || 0}</span></span>
@@ -544,6 +552,7 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
       <span class="pill ${wCls}"><span class="dot"></span><span class="code">${esc(wLine)}</span></span>
     </div>
     ${wErr}
+    ${readyWarn}
   `;
 
   const cards = jobs.map(j => {
