@@ -562,7 +562,7 @@ function setJobsFilter(status){
   try { location.hash = '#jobs'; } catch {}
 }
 
-function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
+function renderJobs(items, summaryCounts=null, worker=null, readyPending=null, nextNotBefore=null){
   const el = document.getElementById('jobsPanel');
   if(!el) return;
   if(!items.length){
@@ -579,6 +579,14 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
         ? `<div class="banner warn" style="margin-top:10px">Ready pending jobs detected but worker drained 0 last tick — try <span class="code">Kick worker</span>.</div>`
         : '';
 
+      let nextBanner = '';
+      try {
+        if (!readyPending && nextNotBefore) {
+          const ts = Date.parse(nextNotBefore);
+          if (ts) nextBanner = `<div class="banner" style="margin-top:10px">Next runnable job: <span class="code">${esc(new Date(ts).toISOString())}</span> · ${esc(fmtAgo(ts))}</div>`;
+        }
+      } catch {}
+
       el.innerHTML = `
         <div class="row" style="justify-content:space-between;margin-bottom:10px;gap:10px">
           <div class="row tight">
@@ -592,6 +600,7 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
         </div>
         ${wErr}
         ${readyWarn}
+        ${nextBanner}
         <div class="muted">No jobs in this view.</div>
       `;
       return;
@@ -631,6 +640,14 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
     ? `<div class="banner warn" style="margin-top:10px">Ready pending jobs detected but worker drained 0 last tick — try <span class="code">Kick worker</span>.</div>`
     : '';
 
+  let nextBanner = '';
+  try {
+    if (!readyPending && nextNotBefore) {
+      const ts = Date.parse(nextNotBefore);
+      if (ts) nextBanner = `<div class="banner" style="margin-top:10px">Next runnable job: <span class="code">${esc(new Date(ts).toISOString())}</span> · ${esc(fmtAgo(ts))}</div>`;
+    }
+  } catch {}
+
   const head = `
     <div class="row" style="justify-content:space-between;margin-bottom:10px;gap:10px">
       <div class="row tight">
@@ -644,6 +661,7 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
     </div>
     ${wErr}
     ${readyWarn}
+    ${nextBanner}
   `;
 
   const cards = jobs.map(j => {
@@ -709,6 +727,7 @@ function renderJobsFromCache(){
   const summary = jobsCache.summary;
   const worker = jobsCache.worker;
   const readyPending = jobsCache.readyPending;
+  const nextNotBefore = jobsCache.nextNotBefore;
 
   let items = Array.isArray(jobsCache.items) ? jobsCache.items : [];
 
@@ -725,7 +744,7 @@ function renderJobsFromCache(){
     });
   }
 
-  renderJobs(items, summary, worker, readyPending);
+  renderJobs(items, summary, worker, readyPending, nextNotBefore);
 }
 
 function applyJobsFilter(){
@@ -744,6 +763,7 @@ async function loadJobs(){
   const summary = (s.ok && s.data?.counts) ? s.data.counts : null;
   const worker = (s.ok && s.data?.worker) ? s.data.worker : null;
   const readyPending = (s.ok && (s.data?.readyPending !== undefined)) ? s.data.readyPending : null;
+  const nextNotBefore = (s.ok && s.data?.nextNotBefore) ? String(s.data.nextNotBefore) : '';
   const defaultNodeId = (s.ok && s.data?.defaultNodeId) ? String(s.data.defaultNodeId) : '';
 
   const url = status ? (`/api/jobs?status=${encodeURIComponent(status)}`) : '/api/jobs';
@@ -755,6 +775,7 @@ async function loadJobs(){
     summary,
     worker,
     readyPending,
+    nextNotBefore: nextNotBefore || null,
   };
 
   // Convenience: if a default execution node is configured (e.g. K15), prefill the Unreal node field.
