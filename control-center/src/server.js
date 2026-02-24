@@ -489,10 +489,37 @@ app.get('/api/jobs/summary', async (req, reply) => {
   let readyPending = null;
   try { readyPending = jobs.hasReadyPending(jobDirs, { sampleLimit: readyPendingSampleLimit }); } catch { readyPending = null; }
 
+  // If pending jobs exist but none are runnable yet, surface the nearest notBefore.
+  // This avoids the UI looking “stuck” when the queue is intentionally delayed.
+  let nextNotBefore = null;
+  try {
+    if ((counts.pending || 0) > 0 && readyPending === false) {
+      const now = Date.now();
+      let files = [];
+      try { files = fs.readdirSync(jobDirs.pendingDir); } catch { files = []; }
+      files = files.filter(f => f.endsWith('.json'));
+      files.sort((a, b) => a.localeCompare(b));
+
+      const n = Math.min(readyPendingSampleLimit, files.length);
+      for (let i = 0; i < n; i++) {
+        const p = path.join(jobDirs.pendingDir, files[i]);
+        const j = readJson(p, null);
+        const nb = Date.parse(j?.notBefore || '') || 0;
+        if (nb && nb > now) {
+          if (!nextNotBefore || nb < nextNotBefore) nextNotBefore = nb;
+        }
+      }
+      if (nextNotBefore) nextNotBefore = new Date(nextNotBefore).toISOString();
+    }
+  } catch {
+    // ignore
+  }
+
   reply.send({
     ok: true,
     counts,
     readyPending,
+    nextNotBefore,
     worker: {
       enabled: workerEnabled,
       pollMs: workerPollMs,
