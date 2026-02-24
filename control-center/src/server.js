@@ -814,11 +814,27 @@ async function runUnrealCreate(job) {
     const p = spawn(args[0], args.slice(1), { windowsHide: true });
     let out = '';
     let err = '';
+    let done = false;
+
+    const finish = (r) => {
+      if (done) return;
+      done = true;
+      return resolve(r);
+    };
+
+    // Reliability: ensure local execution can't hang the worker loop forever.
+    const t = setTimeout(() => {
+      try { p.kill(); } catch {}
+      finish({ ok: false, error: 'TIMEOUT', output: { timeoutMs: localCmdTimeoutMs, out: out.trim(), err: err.trim() } });
+    }, localCmdTimeoutMs);
+    try { t.unref?.(); } catch {}
+
     p.stdout.on('data', d => out += d.toString('utf8'));
     p.stderr.on('data', d => err += d.toString('utf8'));
     p.on('exit', (code) => {
-      if (code === 0) return resolve({ ok: true, output: { code, out: out.trim() } });
-      return resolve({ ok: false, error: `EXIT_${code}`, output: { code, out: out.trim(), err: err.trim() } });
+      clearTimeout(t);
+      if (code === 0) return finish({ ok: true, output: { code, out: out.trim() } });
+      return finish({ ok: false, error: `EXIT_${code}`, output: { code, out: out.trim(), err: err.trim() } });
     });
   });
 }
@@ -858,11 +874,27 @@ async function runUnrealProjectFiles(job) {
     const p = spawn(args[0], args.slice(1), { windowsHide: true });
     let out = '';
     let err = '';
+    let done = false;
+
+    const finish = (r) => {
+      if (done) return;
+      done = true;
+      return resolve(r);
+    };
+
+    // Reliability: ensure local execution can't hang the worker loop forever.
+    const t = setTimeout(() => {
+      try { p.kill(); } catch {}
+      finish({ ok: false, error: 'TIMEOUT', output: { timeoutMs: localCmdTimeoutMs, out: out.trim(), err: err.trim() } });
+    }, localCmdTimeoutMs);
+    try { t.unref?.(); } catch {}
+
     p.stdout.on('data', d => out += d.toString('utf8'));
     p.stderr.on('data', d => err += d.toString('utf8'));
     p.on('exit', (code) => {
-      if (code === 0) return resolve({ ok: true, output: { code, out: out.trim() } });
-      return resolve({ ok: false, error: `EXIT_${code}`, output: { code, out: out.trim(), err: err.trim() } });
+      clearTimeout(t);
+      if (code === 0) return finish({ ok: true, output: { code, out: out.trim() } });
+      return finish({ ok: false, error: `EXIT_${code}`, output: { code, out: out.trim(), err: err.trim() } });
     });
   });
 }
