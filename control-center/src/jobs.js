@@ -172,6 +172,8 @@ function jobPathFor(jobDirs, status, id){
  * by external tools, or transient read errors) and would otherwise be skipped.
  */
 function claimNext(jobDirs){
+  const claimStabilityMs = Math.max(0, Math.min(5_000, Number(process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS || 200)));
+
   let files = [];
   try { files = fs.readdirSync(jobDirs.pendingDir); } catch { files = []; }
   files = files.filter(f => f.endsWith('.json'));
@@ -188,7 +190,7 @@ function claimNext(jobDirs){
     // briefly expose a file that is not yet stable/readable.
     try {
       const st = fs.statSync(from);
-      if (st && st.mtimeMs && (Date.now() - st.mtimeMs) < 200) continue;
+      if (st && st.mtimeMs && (Date.now() - st.mtimeMs) < claimStabilityMs) continue;
     } catch {
       // ignore
     }
