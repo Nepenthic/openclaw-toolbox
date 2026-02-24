@@ -45,6 +45,7 @@ The background worker drains pending jobs automatically.
 ## Audit log
 
 - `CONTROL_CENTER_AUDIT_MAX_BYTES` – rotate `audit.log` when it exceeds this size (default: 10MB)
+- `CONTROL_CENTER_AUDIT_MAX_FILES` – how many rotated audit files to keep (default: 5)
 
 ## Node execution (optional)
 
