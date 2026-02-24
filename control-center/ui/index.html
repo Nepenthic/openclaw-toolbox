@@ -574,6 +574,7 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
         <div class="nodeMeta">
           <div class="k">Created</div><div class="v">${esc(j.createdAt || '')} <span class="muted">(${esc(fmtAgo(toMs(j.createdAt)))})</span></div>
           <div class="k">Updated</div><div class="v">${esc(j.updatedAt || '')} <span class="muted">(${esc(fmtAgo(toMs(j.updatedAt)))})</span></div>
+          <div class="k">Not before</div><div class="v">${esc(j.notBefore || '')} ${(() => { const nb = toMs(j.notBefore); const now = Date.now(); if(!nb) return '<span class="muted">(—)</span>'; if(now < nb) return `<span class="pill warn" style="margin-left:6px"><span class="dot"></span><span class="code">delayed ${esc(fmtAgo(nb))}</span></span>`; return `<span class="muted">(${esc(fmtAgo(nb))})</span>`; })()}</div>
           <div class="k">Started</div><div class="v">${esc(j.startedAt || '')}</div>
           <div class="k">Finished</div><div class="v">${esc(j.finishedAt || '')}</div>
           <div class="k">Duration</div><div class="v">${esc(fmtDur((toMs(j.finishedAt)||0) && (toMs(j.startedAt)||0) ? (toMs(j.finishedAt)-toMs(j.startedAt)) : 0))}</div>
@@ -582,6 +583,7 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
         </div>
 
         ${err ? `<div class="banner bad" style="margin-top:10px"><strong>Error:</strong> <span class="code">${err}</span></div>` : ''}
+        ${(() => { const nb = toMs(j.notBefore); const now = Date.now(); if(!nb || now >= nb) return ''; return `<div class="banner warn" style="margin-top:10px"><strong>Delayed:</strong> Not runnable until <span class="code">${esc(j.notBefore)}</span></div>`; })()}
         ${out ? `<details style="margin-top:10px"><summary>Output</summary><pre>${out}</pre></details>` : ''}
         <details style="margin-top:10px"><summary>Job JSON</summary><pre>${full}</pre></details>
       </div>
