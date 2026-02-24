@@ -703,7 +703,8 @@ app.post('/api/unreal/package', async (req, reply) => {
 // --- Background worker (processes pending jobs) ---
 // This avoids relying on `openclaw ...` CLI, and instead prefers calling the Gateway directly.
 const workerEnabled = (process.env.CONTROL_CENTER_WORKER_ENABLED || '1') !== '0';
-const workerPollMs = Number(process.env.CONTROL_CENTER_WORKER_POLL_MS || 1500);
+// Clamp to avoid accidental busy-loops (eg CONTROL_CENTER_WORKER_POLL_MS=0).
+const workerPollMs = Math.max(250, Number(process.env.CONTROL_CENTER_WORKER_POLL_MS || 1500));
 const workerDrainPerTick = Math.max(1, Math.min(50, Number(process.env.CONTROL_CENTER_WORKER_DRAIN_PER_TICK || 10)));
 
 const workerState = {
