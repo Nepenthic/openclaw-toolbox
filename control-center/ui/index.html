@@ -207,6 +207,7 @@ let autoRefresh = true;
 let nodesTimer = null;
 let pendingTimer = null;
 let jobsTimer = null;
+let auditTimer = null;
 
 // Cache last jobs payload so typing in the filter box doesn't spam the server.
 let jobsCache = { items: [], summary: null, worker: null, readyPending: null };
@@ -487,6 +488,7 @@ function startTimers(){
     nodesTimer = setInterval(() => loadNodesLive().catch(()=>{}), REFRESH_EVERY_MS);
     pendingTimer = setInterval(() => loadPending().catch(()=>{}), REFRESH_EVERY_MS);
     jobsTimer = setInterval(() => loadJobs().catch(()=>{}), REFRESH_EVERY_MS);
+    auditTimer = setInterval(() => loadAudit().catch(()=>{}), REFRESH_EVERY_MS);
   }
 }
 
@@ -494,9 +496,11 @@ function stopTimers(){
   if(nodesTimer) clearInterval(nodesTimer);
   if(pendingTimer) clearInterval(pendingTimer);
   if(jobsTimer) clearInterval(jobsTimer);
+  if(auditTimer) clearInterval(auditTimer);
   nodesTimer = null;
   pendingTimer = null;
   jobsTimer = null;
+  auditTimer = null;
 }
 
 function toggleAutoRefresh(){
