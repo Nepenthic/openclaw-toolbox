@@ -431,7 +431,7 @@ async function loadNodesLive(){
     const detail = parts.length ? esc(parts.join(' · ')) : esc(JSON.stringify(d).slice(0, 260));
 
     setBanner('nodesBanner', `<strong>Could not load live nodes.</strong> ${nodesLastErr}${detail ? ` · <span class="code">${detail}</span>` : ''}`, 'bad');
-    document.getElementById('nodesList').innerHTML = '';
+    // Keep the last successful node render visible; it’s more useful than a blank panel.
   }
   updateNodesMeta();
 }
