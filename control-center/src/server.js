@@ -574,7 +574,8 @@ async function runUnrealCreate(job) {
     // Reliability: if the operator forgot to set the gateway token, don’t burn the job.
     // Requeue so it can run once the token/env is fixed.
     if (!r.ok && r.error === 'NO_GATEWAY_TOKEN') {
-      return { ok: false, requeue: true, error: 'NO_GATEWAY_TOKEN', output: r };
+      // Backoff: avoid tight re-claim loops when the operator hasn’t set the token yet.
+      return { ok: false, requeue: true, delayMs: 60_000, error: 'NO_GATEWAY_TOKEN', output: r };
     }
 
     if (!r.ok) {
@@ -612,8 +613,8 @@ async function processOneJob() {
     }
 
     if (r && r.requeue) {
-      const next = jobs.requeue(jobDirs, job, { error: r.error || 'REQUEUED' });
-      audit('worker.requeue', null, { ok: true, jobId: job.id, type: job.type, error: r.error || 'REQUEUED', attempts: next.attempts || job.attempts || 1 });
+      const next = jobs.requeue(jobDirs, job, { error: r.error || 'REQUEUED', delayMs: r.delayMs || 0 });
+      audit('worker.requeue', null, { ok: true, jobId: job.id, type: job.type, error: r.error || 'REQUEUED', delayMs: r.delayMs || 0, attempts: next.attempts || job.attempts || 1 });
       return true;
     }
 

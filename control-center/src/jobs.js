@@ -139,6 +139,17 @@ function claimNext(jobDirs){
     }
 
     const j = readJson(to);
+
+    // If a job has a notBefore timestamp (simple backoff), put it back and move on.
+    // This prevents rapid re-claim loops (e.g., missing gateway token).
+    try {
+      const nb = Date.parse(j && j.notBefore ? j.notBefore : '');
+      if (nb && Date.now() < nb) {
+        try { fs.renameSync(to, from); } catch {}
+        continue;
+      }
+    } catch {}
+
     if(!j || !j.id){
       // The file we claimed isn't valid JSON. Quarantine it as FAILED so the
       // queue doesn't jam forever.
@@ -296,7 +307,7 @@ function cleanupTmp(jobDirs){
   return removed;
 }
 
-function requeue(jobDirs, job, { error = null } = {}){
+function requeue(jobDirs, job, { error = null, delayMs = 0 } = {}){
   const from = jobPathFor(jobDirs, 'RUNNING', job.id);
   const to = jobPathFor(jobDirs, 'PENDING', job.id);
 
@@ -305,6 +316,7 @@ function requeue(jobDirs, job, { error = null } = {}){
     status: 'PENDING',
     updatedAt: nowIso(),
     requeuedAt: nowIso(),
+    ...(delayMs && delayMs > 0 ? { notBefore: new Date(Date.now() + delayMs).toISOString() } : {}),
     // Preserve existing result unless we’re adding a hint.
     result: error ? { ok: false, output: null, error: String(error) } : (job.result || null),
   };
