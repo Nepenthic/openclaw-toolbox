@@ -413,8 +413,18 @@ async function loadNodesLive(){
     renderNodes(items);
   } else {
     nodesLastErr = (r.status === 0) ? 'network error' : `HTTP ${r.status}`;
-    const msg = esc(JSON.stringify(r.data));
-    setBanner('nodesBanner', `<strong>Could not load live nodes.</strong> ${nodesLastErr} · <span class="code">${msg}</span>`, 'bad');
+
+    // Make failures scannable: show the most useful fields first, and keep the raw
+    // JSON in the debug panel below.
+    const d = r.data || {};
+    const parts = [];
+    if (d.error) parts.push(String(d.error));
+    if (d.message) parts.push(String(d.message));
+    if (d.text && typeof d.text === 'string') parts.push(d.text.slice(0, 220));
+    if (d.timeoutMs) parts.push(`timeoutMs=${d.timeoutMs}`);
+    const detail = parts.length ? esc(parts.join(' · ')) : esc(JSON.stringify(d).slice(0, 260));
+
+    setBanner('nodesBanner', `<strong>Could not load live nodes.</strong> ${nodesLastErr}${detail ? ` · <span class="code">${detail}</span>` : ''}`, 'bad');
     document.getElementById('nodesList').innerHTML = '';
   }
   updateNodesMeta();
