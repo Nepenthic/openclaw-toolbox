@@ -183,6 +183,16 @@ function claimNext(jobDirs){
     const from = path.join(jobDirs.pendingDir, f);
     const to = path.join(jobDirs.processingDir, f);
 
+    // Reliability: avoid claiming a job that may still be mid-write.
+    // Even though enqueue uses atomic writes, external tools or slower disks can
+    // briefly expose a file that is not yet stable/readable.
+    try {
+      const st = fs.statSync(from);
+      if (st && st.mtimeMs && (Date.now() - st.mtimeMs) < 200) continue;
+    } catch {
+      // ignore
+    }
+
     try {
       renameSyncRetry(from, to);
     } catch {
