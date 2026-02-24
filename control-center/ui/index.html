@@ -172,6 +172,7 @@
           <option value="FAILED">Failed</option>
         </select>
       </label>
+      <input id="jobsFilter" placeholder="Filter id/type/path…" size="22" oninput="loadJobs().catch(()=>{})" />
       <span class="muted">Auto-refresh: <span id="jobsAutoOn">on</span></span>
     </div>
     <div id="jobsPanel"></div>
@@ -606,7 +607,19 @@ async function loadJobs(){
   const r = await j(url);
   document.getElementById('jobsOut').textContent = JSON.stringify({ summary: s, list: r }, null, 2);
 
-  const items = r.ok ? (r.data?.jobs || []) : [];
+  let items = r.ok ? (r.data?.jobs || []) : [];
+
+  const q = (document.getElementById('jobsFilter')?.value || '').trim().toLowerCase();
+  if (q) {
+    items = items.filter(j => {
+      const id = String(j.id || '').toLowerCase();
+      const type = String(j.type || '').toLowerCase();
+      const uproject = String(j.uproject || '').toLowerCase();
+      const name = String(j.name || '').toLowerCase();
+      return id.includes(q) || type.includes(q) || uproject.includes(q) || name.includes(q);
+    });
+  }
+
   renderJobs(items, summary, worker, readyPending);
 }
 
