@@ -568,7 +568,10 @@ function startWorkerLoop() {
 
     running = true;
     try {
-      // Recover from worker crashes: move stale RUNNING jobs back to pending.
+      // Recover from worker crashes: cleanup temp files + move stale RUNNING jobs back to pending.
+      const tmpRemoved = jobs.cleanupTmp(jobDirs);
+      if (tmpRemoved > 0) audit('worker.cleanupTmp', null, { ok: true, count: tmpRemoved });
+
       const requeued = jobs.requeueStale(jobDirs, { staleMs: 10 * 60 * 1000, maxAttempts: 3 });
       if (requeued > 0) audit('worker.requeueStale', null, { ok: true, count: requeued });
 

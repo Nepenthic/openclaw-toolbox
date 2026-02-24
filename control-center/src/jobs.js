@@ -215,4 +215,21 @@ function get(jobDirs, id){
   return null;
 }
 
-module.exports = { init, enqueue, list, get, claimNext, finish, requeueStale };
+function cleanupTmp(jobDirs){
+  // If the process crashed mid-write, we can be left with *.tmp files.
+  // They are never valid jobs (we only ever read *.json), but they can
+  // accumulate and confuse manual inspection. Clean them up best-effort.
+  const dirs = [jobDirs.pendingDir, jobDirs.processingDir, jobDirs.doneDir, jobDirs.failedDir];
+  let removed = 0;
+  for (const dir of dirs) {
+    let files = [];
+    try { files = fs.readdirSync(dir); } catch { files = []; }
+    for (const f of files) {
+      if (!f.endsWith('.tmp')) continue;
+      try { fs.unlinkSync(path.join(dir, f)); removed++; } catch {}
+    }
+  }
+  return removed;
+}
+
+module.exports = { init, enqueue, list, get, claimNext, finish, requeueStale, cleanupTmp };
