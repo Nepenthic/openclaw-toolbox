@@ -81,6 +81,7 @@
       <a href="#unreal">Unreal</a>
       <a href="#approvals">Approvals</a>
       <a href="#jobs">Jobs</a>
+      <a href="#audit">Audit</a>
     </div>
   </div>
 
@@ -155,6 +156,15 @@
     </div>
     <div id="jobsPanel"></div>
     <pre id="jobsOut" style="display:none"></pre>
+  </div>
+
+  <div class="card" id="audit">
+    <h2>Audit (tail)</h2>
+    <div class="row">
+      <button onclick="loadAudit()">Refresh</button>
+      <span class="muted">Requires session (login).</span>
+    </div>
+    <pre id="auditOut"></pre>
   </div>
 
   <div class="card">
@@ -395,6 +405,13 @@ async function loadState(){
   document.getElementById('stateOut').textContent = JSON.stringify(r, null, 2);
 }
 
+async function loadAudit(){
+  const r = await j('/api/audit/tail?limit=200');
+  const el = document.getElementById('auditOut');
+  if(!el) return;
+  el.textContent = JSON.stringify(r, null, 2);
+}
+
 function jobPill(status){
   const s = String(status || '').toUpperCase();
   if(s === 'DONE' || s === 'SUCCEEDED') return { cls: 'good', label: 'DONE' };
@@ -583,6 +600,7 @@ startTimers();
 loadNodesLive().catch(()=>{});
 loadPending().catch(()=>{});
 loadJobs().catch(()=>{});
+loadAudit().catch(()=>{});
 </script>
 </body>
 </html>
