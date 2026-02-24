@@ -463,23 +463,42 @@ const nodesRunPath = process.env.OPENCLAW_NODES_RUN_PATH || '/api/nodes/run';
 // (Otherwise we wait up to workerPollMs.)
 let workerKick = null;
 
+const nodesRunTimeoutMs = Number(process.env.OPENCLAW_NODES_RUN_TIMEOUT_MS || 120000);
+
 async function nodesRun({ node, command, cwd, env }) {
   if (!gatewayToken) {
     return { ok: false, error: 'NO_GATEWAY_TOKEN', message: 'Set OPENCLAW_GATEWAY_TOKEN to enable nodes.run execution.' };
   }
+
   const url = new URL(nodesRunPath, gatewayUrl);
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${gatewayToken}`,
-    },
-    body: JSON.stringify({ node, command, cwd, env }),
-  });
-  const txt = await res.text();
-  let json;
-  try { json = JSON.parse(txt); } catch { json = { raw: txt }; }
-  return { ok: res.ok, status: res.status, json };
+
+  // Reliability: avoid hanging the worker forever if the Gateway call stalls.
+  const ac = new AbortController();
+  const t = setTimeout(() => {
+    try { ac.abort(new Error('NODES_RUN_TIMEOUT')); } catch {}
+  }, nodesRunTimeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${gatewayToken}`,
+      },
+      body: JSON.stringify({ node, command, cwd, env }),
+      signal: ac.signal,
+    });
+    const txt = await res.text();
+    let json;
+    try { json = JSON.parse(txt); } catch { json = { raw: txt }; }
+    return { ok: res.ok, status: res.status, json };
+  } catch (e) {
+    const name = e?.name || 'Error';
+    if (name === 'AbortError') return { ok: false, error: 'TIMEOUT', timeoutMs: nodesRunTimeoutMs };
+    return { ok: false, error: 'FETCH_FAILED', message: e?.message || String(e) };
+  } finally {
+    clearTimeout(t);
+  }
 }
 
 async function runUnrealCreate(job) {
