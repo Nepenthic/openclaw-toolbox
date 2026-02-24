@@ -1066,8 +1066,10 @@ function startWorkerLoop() {
       }
 
       try {
-        const requeued = jobs.requeueStale(jobDirs, { staleMs: 10 * 60 * 1000, maxAttempts: 3 });
-        if (requeued > 0) audit('worker.requeueStale', null, { ok: true, count: requeued });
+        const staleMs = Math.max(30_000, Number(process.env.CONTROL_CENTER_STALE_MS || (10 * 60 * 1000)));
+        const maxAttempts = Math.max(1, Math.min(25, Number(process.env.CONTROL_CENTER_MAX_ATTEMPTS || 3)));
+        const requeued = jobs.requeueStale(jobDirs, { staleMs, maxAttempts });
+        if (requeued > 0) audit('worker.requeueStale', null, { ok: true, count: requeued, staleMs, maxAttempts });
       } catch (e) {
         audit('worker.requeueStale', null, { ok: false, error: e?.message || String(e) });
       }
