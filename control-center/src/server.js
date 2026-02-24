@@ -101,6 +101,9 @@ const app = Fastify({ logger: true, trustProxy: false });
 const bindHost = process.env.CONTROL_CENTER_BIND || '0.0.0.0';
 const port = Number(process.env.CONTROL_CENTER_PORT || 3080);
 
+// Optional: default node to execute jobs on (useful for Unreal build/package on a dedicated box like K15)
+const defaultNodeId = (process.env.CONTROL_CENTER_DEFAULT_NODE_ID || '').trim();
+
 // In LAN mode, we MUST do host/origin allowlisting.
 const allowedHosts = new Set(
   (process.env.CONTROL_CENTER_ALLOWED_HOSTS || '')
@@ -426,8 +429,14 @@ app.get('/api/jobs/:id', async (req, reply) => {
 });
 
 function enqueueJob(req, jobSpec, auditExtra = {}) {
-  const job = jobs.enqueue(jobDirs, jobSpec);
-  audit('jobs.enqueue', req, { ok: true, type: jobSpec.type, jobId: job.id, ...auditExtra });
+  const spec = {
+    ...jobSpec,
+    // If a default node is configured, prefer it for job execution unless the caller overrides.
+    ...(defaultNodeId && !jobSpec.nodeId ? { nodeId: defaultNodeId } : {}),
+  };
+
+  const job = jobs.enqueue(jobDirs, spec);
+  audit('jobs.enqueue', req, { ok: true, type: spec.type, jobId: job.id, nodeId: spec.nodeId || null, ...auditExtra });
   // Best-effort: nudge the worker right away so UI doesn't sit on "pending" until next poll.
   // Use a micro-delay so we don't do heavy work on the request's call stack.
   try { if (workerKick) setTimeout(() => workerKick(), 0); } catch {}
@@ -819,7 +828,7 @@ function startWorkerLoop() {
     return;
   }
 
-  app.log.info({ workerPollMs, workerDrainPerTick, gatewayUrl, nodesRunPath, hasGatewayToken: !!gatewayToken }, 'Worker loop starting');
+  app.log.info({ workerPollMs, workerDrainPerTick, gatewayUrl, nodesRunPath, hasGatewayToken: !!gatewayToken, defaultNodeId: defaultNodeId || null }, 'Worker loop starting');
 
   let running = false;
   let rerunRequested = false;
