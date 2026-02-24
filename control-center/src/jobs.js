@@ -441,8 +441,24 @@ function hasReadyPending(jobDirs, { sampleLimit = 25 } = {}) {
   files.sort((a, b) => a.localeCompare(b));
 
   const now = Date.now();
+
+  // IMPORTANT: Don't only sample the oldest N jobs.
+  // If the head of the queue is all delayed (notBefore), but newer jobs are runnable,
+  // sampling only from the front can incorrectly return false and let the worker idle.
   const n = Math.min(sampleLimit, files.length);
-  for (let i = 0; i < n; i++) {
+  const idxs = [];
+  if (files.length <= n) {
+    for (let i = 0; i < files.length; i++) idxs.push(i);
+  } else {
+    const step = files.length / n;
+    for (let k = 0; k < n; k++) {
+      const i = Math.min(files.length - 1, Math.floor(k * step));
+      // de-dupe in case of rounding collisions
+      if (idxs.length === 0 || idxs[idxs.length - 1] !== i) idxs.push(i);
+    }
+  }
+
+  for (const i of idxs) {
     const p = path.join(jobDirs.pendingDir, files[i]);
     const j = readJsonRetry(p, null, { attempts: 2, delayMs: 5 });
     // Reliability: if we can't read a pending job due to transient Windows/AV locks,
