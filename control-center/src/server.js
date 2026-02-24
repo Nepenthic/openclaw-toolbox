@@ -1052,6 +1052,8 @@ function startWorkerLoop() {
     }
 
     running = true;
+    let drained = 0;
+    let readyPendingHint = false;
     try {
       workerState.lastTickAt = Date.now();
       workerState.lastError = null;
@@ -1075,7 +1077,7 @@ function startWorkerLoop() {
       }
 
       // Drain a few jobs per tick to reduce latency.
-      let drained = 0;
+      drained = 0;
       for (let i = 0; i < workerDrainPerTick; i++) {
         const did = await processOneJob();
         if (!did) break;
@@ -1090,7 +1092,10 @@ function startWorkerLoop() {
         try {
           // Only rerun immediately if there are *claimable* pending jobs.
           // Prevents a tight loop when the queue contains only delayed (notBefore) jobs.
-          if (jobs.hasReadyPending(jobDirs, { sampleLimit: readyPendingSampleLimit })) rerunRequested = true;
+          if (jobs.hasReadyPending(jobDirs, { sampleLimit: readyPendingSampleLimit })) {
+            readyPendingHint = true;
+            rerunRequested = true;
+          }
         } catch {
           // ignore
         }
@@ -1102,6 +1107,7 @@ function startWorkerLoop() {
       if (drained === 0) {
         try {
           if (jobs.hasReadyPending(jobDirs, { sampleLimit: readyPendingSampleLimit })) {
+            readyPendingHint = true;
             rerunRequested = true;
             // Avoid a tight setImmediate loop on transient Windows/AV contention.
             rerunDelayMs = Math.max(rerunDelayMs, 100);
@@ -1120,7 +1126,10 @@ function startWorkerLoop() {
     // If kicks arrived while we were running, do one extra pass immediately.
     // Avoid recursion here: in bursty scenarios this can grow the call stack.
     if (rerunRequested) {
-      const delay = rerunDelayMs;
+      let delay = rerunDelayMs;
+      // If we got kicked while running but didn’t detect any ready pending work, avoid a busy-loop.
+      // (fs.watch can emit noisy events; multiple kicks can stack up.)
+      if (delay === 0 && drained === 0 && !readyPendingHint) delay = 250;
       rerunRequested = false;
       rerunDelayMs = 0;
       const schedule = delay > 0 ? setTimeout : setImmediate;
