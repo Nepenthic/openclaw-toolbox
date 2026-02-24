@@ -452,20 +452,30 @@ function jobPill(status){
   return { cls: 'warn', label: 'PENDING' };
 }
 
-function renderJobs(items, summaryCounts=null){
+function renderJobs(items, summaryCounts=null, worker=null){
   const el = document.getElementById('jobsPanel');
   if(!el) return;
   if(!items.length){
     // Still show summary chips if we have them.
     const c = summaryCounts;
     if(c){
+      const w = worker;
+      const wStatus = w ? (w.enabled ? 'enabled' : 'disabled') : 'unknown';
+      const wCls = w ? (w.lastError ? 'bad' : (w.enabled ? 'good' : 'warn')) : 'warn';
+      const wLine = w ? `Worker: ${wStatus} · lastTick ${fmtAgo(w.lastTickAt)} · drained ${w.lastDrained ?? 0}` : 'Worker: (not loaded)';
+      const wErr = (w && w.lastError) ? `<div class="banner bad" style="margin-top:10px">Worker error: <span class="code">${esc(String(w.lastError))}</span></div>` : '';
+
       el.innerHTML = `
-        <div class="row tight" style="margin-bottom:10px">
-          <span class="pill warn"><span class="dot"></span><span class="code">PENDING ${c.pending||0}</span></span>
-          <span class="pill warn"><span class="dot"></span><span class="code">RUNNING ${c.running||0}</span></span>
-          <span class="pill good"><span class="dot"></span><span class="code">DONE ${c.done||0}</span></span>
-          <span class="pill bad"><span class="dot"></span><span class="code">FAILED ${c.failed||0}</span></span>
+        <div class="row" style="justify-content:space-between;margin-bottom:10px;gap:10px">
+          <div class="row tight">
+            <span class="pill warn"><span class="dot"></span><span class="code">PENDING ${c.pending||0}</span></span>
+            <span class="pill warn"><span class="dot"></span><span class="code">RUNNING ${c.running||0}</span></span>
+            <span class="pill good"><span class="dot"></span><span class="code">DONE ${c.done||0}</span></span>
+            <span class="pill bad"><span class="dot"></span><span class="code">FAILED ${c.failed||0}</span></span>
+          </div>
+          <span class="pill ${wCls}"><span class="dot"></span><span class="code">${esc(wLine)}</span></span>
         </div>
+        ${wErr}
         <div class="muted">No jobs in this view.</div>
       `;
       return;
@@ -494,13 +504,23 @@ function renderJobs(items, summaryCounts=null){
   for(const j of jobs) counts[normStatus(j)]++;
 
   const sc = summaryCounts || null;
+  const w = worker;
+  const wStatus = w ? (w.enabled ? 'enabled' : 'disabled') : 'unknown';
+  const wCls = w ? (w.lastError ? 'bad' : (w.enabled ? 'good' : 'warn')) : 'warn';
+  const wLine = w ? `Worker: ${wStatus} · lastTick ${fmtAgo(w.lastTickAt)} · drained ${w.lastDrained ?? 0}` : 'Worker: (not loaded)';
+  const wErr = (w && w.lastError) ? `<div class="banner bad" style="margin-top:10px">Worker error: <span class="code">${esc(String(w.lastError))}</span></div>` : '';
+
   const head = `
-    <div class="row tight" style="margin-bottom:10px">
-      <span class="pill warn"><span class="dot"></span><span class="code">PENDING ${(sc ? sc.pending : counts.PENDING) || 0}</span></span>
-      <span class="pill warn"><span class="dot"></span><span class="code">RUNNING ${(sc ? sc.running : counts.RUNNING) || 0}</span></span>
-      <span class="pill good"><span class="dot"></span><span class="code">DONE ${(sc ? sc.done : counts.DONE) || 0}</span></span>
-      <span class="pill bad"><span class="dot"></span><span class="code">FAILED ${(sc ? sc.failed : counts.FAILED) || 0}</span></span>
+    <div class="row" style="justify-content:space-between;margin-bottom:10px;gap:10px">
+      <div class="row tight">
+        <span class="pill warn"><span class="dot"></span><span class="code">PENDING ${(sc ? sc.pending : counts.PENDING) || 0}</span></span>
+        <span class="pill warn"><span class="dot"></span><span class="code">RUNNING ${(sc ? sc.running : counts.RUNNING) || 0}</span></span>
+        <span class="pill good"><span class="dot"></span><span class="code">DONE ${(sc ? sc.done : counts.DONE) || 0}</span></span>
+        <span class="pill bad"><span class="dot"></span><span class="code">FAILED ${(sc ? sc.failed : counts.FAILED) || 0}</span></span>
+      </div>
+      <span class="pill ${wCls}"><span class="dot"></span><span class="code">${esc(wLine)}</span></span>
     </div>
+    ${wErr}
   `;
 
   const cards = jobs.map(j => {
@@ -561,13 +581,14 @@ async function loadJobs(){
   // Pull summary counts separately so filters still show overall queue health.
   const s = await j('/api/jobs/summary');
   const summary = (s.ok && s.data?.counts) ? s.data.counts : null;
+  const worker = (s.ok && s.data?.worker) ? s.data.worker : null;
 
   const url = status ? (`/api/jobs?status=${encodeURIComponent(status)}`) : '/api/jobs';
   const r = await j(url);
   document.getElementById('jobsOut').textContent = JSON.stringify({ summary: s, list: r }, null, 2);
 
   const items = r.ok ? (r.data?.jobs || []) : [];
-  renderJobs(items, summary);
+  renderJobs(items, summary, worker);
 }
 
 async function kickJobsWorker(){
