@@ -357,12 +357,31 @@ function runOpenclawJson(args, { timeoutMs = 6000 } = {}) {
       if (done) return;
       done = true;
       clearTimeout(t);
-      const txt = (out + '\n' + err).trim();
+
+      // Prefer parsing stdout as JSON; some CLIs emit logs to stderr.
+      const txtOut = (out || '').trim();
+      const txtErr = (err || '').trim();
+      const txtBoth = (txtOut + '\n' + txtErr).trim();
+
       try {
-        const json = JSON.parse(txt);
+        if (txtOut) {
+          const json = JSON.parse(txtOut);
+          return resolve({ ok: code === 0, code, json });
+        }
+      } catch {}
+
+      try {
+        if (txtErr) {
+          const json = JSON.parse(txtErr);
+          return resolve({ ok: code === 0, code, json });
+        }
+      } catch {}
+
+      try {
+        const json = JSON.parse(txtBoth);
         return resolve({ ok: code === 0, code, json });
       } catch {
-        return resolve({ ok: false, code, error: 'NON_JSON', text: txt.slice(0, 4000) });
+        return resolve({ ok: false, code, error: 'NON_JSON', text: txtBoth.slice(0, 4000) });
       }
     });
   });
