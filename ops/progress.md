@@ -29,3 +29,9 @@ A short, durable artifact for long-running work.
 ### Next
 - Tighten digest throttling: 1-2 second delay between Brave searches.
 - (Done) Updated regression checklist with explicit `web_search` pacing guardrail (1100-1500ms) to reduce 429 risk; next: apply the same pacing inside the daily digest job if it currently loops searches without sleeps.
+ 
+## 2026-02-24
+- Cleaned up ops/regression-checklist.md: removed mojibake characters fixed duplicate numbering and normalized punctuation to ASCII.
+ - Why: keeps the checklist copy/paste-safe in PowerShell/Discord and reduces encoding regressions.
+ - Next: run ops/check-encoding.ps1 periodically to ensure the rest of ops docs stay clean.
+
