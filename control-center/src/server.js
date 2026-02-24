@@ -1243,10 +1243,11 @@ function startWorkerLoop() {
 
   // Bonus reliability/latency improvement: kick the worker as soon as a new job file lands.
   // Debounce to avoid a storm of kicks on Windows (rename/write patterns can emit multiple events).
+  // IMPORTANT: keep a reference to the FSWatcher; otherwise it can be GC'd and stop firing.
+  let pendingWatcher = null;
   try {
     let watchKickTimer = null;
-    // Use persistent watch so Node doesn't garbage-collect the watcher under low activity.
-    fs.watch(jobDirs.pendingDir, { persistent: true }, () => {
+    pendingWatcher = fs.watch(jobDirs.pendingDir, { persistent: true }, () => {
       if (watchKickTimer) return;
       watchKickTimer = setTimeout(() => {
         watchKickTimer = null;
@@ -1255,6 +1256,7 @@ function startWorkerLoop() {
       // Don't keep the process alive just because a debounce timer exists.
       try { watchKickTimer.unref?.(); } catch {}
     });
+    try { pendingWatcher.unref?.(); } catch {}
   } catch (e) {
     app.log.warn({ err: e?.message || String(e) }, 'fs.watch pendingDir failed; falling back to polling only');
   }
