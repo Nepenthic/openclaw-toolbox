@@ -743,6 +743,7 @@ async function loadJobs(){
   const summary = (s.ok && s.data?.counts) ? s.data.counts : null;
   const worker = (s.ok && s.data?.worker) ? s.data.worker : null;
   const readyPending = (s.ok && (s.data?.readyPending !== undefined)) ? s.data.readyPending : null;
+  const defaultNodeId = (s.ok && s.data?.defaultNodeId) ? String(s.data.defaultNodeId) : '';
 
   const url = status ? (`/api/jobs?status=${encodeURIComponent(status)}`) : '/api/jobs';
   const r = await j(url);
@@ -754,6 +755,12 @@ async function loadJobs(){
     worker,
     readyPending,
   };
+
+  // Convenience: if a default execution node is configured (e.g. K15), prefill the Unreal node field.
+  try {
+    const n = document.getElementById('unrealNodeId');
+    if (n && !String(n.value || '').trim() && defaultNodeId) n.value = defaultNodeId;
+  } catch {}
 
   renderJobsFromCache();
 }

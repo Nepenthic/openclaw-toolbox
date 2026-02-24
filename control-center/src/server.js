@@ -521,6 +521,7 @@ app.get('/api/jobs/summary', async (req, reply) => {
     counts,
     readyPending,
     nextNotBefore,
+    defaultNodeId: defaultNodeId || null,
     worker: {
       enabled: workerEnabled,
       pollMs: workerPollMs,
