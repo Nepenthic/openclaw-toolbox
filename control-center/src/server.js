@@ -503,8 +503,9 @@ app.get('/api/jobs/summary', async (req, reply) => {
       const n = Math.min(readyPendingSampleLimit, files.length);
       for (let i = 0; i < n; i++) {
         const p = path.join(jobDirs.pendingDir, files[i]);
-        // Reliability: pending job files can be briefly locked by AV/indexers.
-        const j = readJsonRetry(p, null, { attempts: 2, delayMs: 5 });
+        // Best-effort: use a plain read here (this endpoint is advisory only).
+        // The worker itself already uses read retries when claiming jobs.
+        const j = readJson(p, null);
         const nb = Date.parse(j?.notBefore || '') || 0;
         if (nb && nb > now) {
           if (!nextNotBefore || nb < nextNotBefore) nextNotBefore = nb;
