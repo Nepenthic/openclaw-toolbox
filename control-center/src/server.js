@@ -706,6 +706,9 @@ const workerEnabled = (process.env.CONTROL_CENTER_WORKER_ENABLED || '1') !== '0'
 // Clamp to avoid accidental busy-loops (eg CONTROL_CENTER_WORKER_POLL_MS=0).
 const workerPollMs = Math.max(250, Number(process.env.CONTROL_CENTER_WORKER_POLL_MS || 1500));
 const workerDrainPerTick = Math.max(1, Math.min(50, Number(process.env.CONTROL_CENTER_WORKER_DRAIN_PER_TICK || 10)));
+// Upper bound on how long a single tick will spend draining jobs before yielding.
+// Helps keep the server responsive while still draining bursts quickly.
+const workerTickBudgetMs = Math.max(250, Math.min(30_000, Number(process.env.CONTROL_CENTER_WORKER_TICK_BUDGET_MS || 1500)));
 
 const workerState = {
   lastTickAt: null,
@@ -1039,7 +1042,7 @@ function startWorkerLoop() {
     return;
   }
 
-  app.log.info({ workerPollMs, workerDrainPerTick, gatewayUrl, nodesRunPath, hasGatewayToken: !!gatewayToken, defaultNodeId: defaultNodeId || null }, 'Worker loop starting');
+  app.log.info({ workerPollMs, workerDrainPerTick, workerTickBudgetMs, gatewayUrl, nodesRunPath, hasGatewayToken: !!gatewayToken, defaultNodeId: defaultNodeId || null }, 'Worker loop starting');
 
   let running = false;
   let rerunRequested = false;
@@ -1077,8 +1080,11 @@ function startWorkerLoop() {
       }
 
       // Drain a few jobs per tick to reduce latency.
+      // Bound both by count and by a time budget so we don't block the event loop for too long.
       drained = 0;
+      const drainStart = Date.now();
       for (let i = 0; i < workerDrainPerTick; i++) {
+        if ((Date.now() - drainStart) > workerTickBudgetMs) break;
         const did = await processOneJob();
         if (!did) break;
         drained++;
