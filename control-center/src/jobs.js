@@ -445,7 +445,10 @@ function hasReadyPending(jobDirs, { sampleLimit = 25 } = {}) {
   for (let i = 0; i < n; i++) {
     const p = path.join(jobDirs.pendingDir, files[i]);
     const j = readJsonRetry(p, null, { attempts: 2, delayMs: 5 });
-    if (!j) continue;
+    // Reliability: if we can't read a pending job due to transient Windows/AV locks,
+    // treat it as “ready” so the worker will retry quickly instead of idling until
+    // the next poll interval.
+    if (!j) return true;
     try {
       const nb = Date.parse(j.notBefore || '');
       if (!nb || now >= nb) return true;
