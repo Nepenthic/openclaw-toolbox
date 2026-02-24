@@ -112,36 +112,72 @@ function jobPathFor(jobDirs, status, id){
 /**
  * Atomically claim the next pending job by moving it into processing/.
  * Returns { job, path } or null.
+ *
+ * Reliability note:
+ * - We iterate files directly and claim via rename first.
+ * - Then we read JSON from the claimed location.
+ * This avoids a race where a job becomes unreadable in pending/ (partial writes
+ * by external tools, or transient read errors) and would otherwise be skipped.
  */
 function claimNext(jobDirs){
-  const pending = listPending(jobDirs);
-  for(const j of pending){
-    const from = jobPathFor(jobDirs, 'PENDING', j.id);
-    const to = jobPathFor(jobDirs, 'RUNNING', j.id);
+  let files = [];
+  try { files = fs.readdirSync(jobDirs.pendingDir); } catch { files = []; }
+  files = files.filter(f => f.endsWith('.json'));
+
+  // Prefer oldest-ish first: sort by filename (ids are time-based) as a cheap proxy.
+  files.sort((a,b)=> a.localeCompare(b));
+
+  for(const f of files){
+    const from = path.join(jobDirs.pendingDir, f);
+    const to = path.join(jobDirs.processingDir, f);
+
     try {
       fs.renameSync(from, to);
-      const claimed = {
-        ...j,
-        status: 'RUNNING',
-        attempts: (j.attempts || 0) + 1,
-        startedAt: nowIso(),
-        updatedAt: nowIso(),
-      };
-
-      // Best-effort: if the atomic rewrite fails (Windows rename edge cases),
-      // fall back to a normal write. A partially-updated job in processing/
-      // can otherwise look “stuck” (missing startedAt/attempts).
-      try {
-        writeJsonAtomic(to, claimed);
-      } catch {
-        try { writeJson(to, claimed); } catch {}
-      }
-
-      return { job: claimed, path: to };
     } catch {
       // Someone else claimed it; try next.
+      continue;
     }
+
+    const j = readJson(to);
+    if(!j || !j.id){
+      // The file we claimed isn't valid JSON. Quarantine it as FAILED so the
+      // queue doesn't jam forever.
+      try {
+        const badId = (j && j.id) ? j.id : path.basename(f, '.json');
+        const failedPath = jobPathFor(jobDirs, 'FAILED', badId);
+        const rec = {
+          ...(j || { id: badId, createdAt: nowIso(), attempts: 0 }),
+          status: 'FAILED',
+          updatedAt: nowIso(),
+          finishedAt: nowIso(),
+          result: { ok: false, output: null, error: 'BAD_JOB_JSON' },
+        };
+        try { writeJsonAtomic(failedPath, rec); } catch { try { writeJson(failedPath, rec); } catch {} }
+      } catch {}
+      try { fs.unlinkSync(to); } catch {}
+      continue;
+    }
+
+    const claimed = {
+      ...j,
+      status: 'RUNNING',
+      attempts: (j.attempts || 0) + 1,
+      startedAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+
+    // Best-effort: if the atomic rewrite fails (Windows rename edge cases),
+    // fall back to a normal write. A partially-updated job in processing/
+    // can otherwise look “stuck” (missing startedAt/attempts).
+    try {
+      writeJsonAtomic(to, claimed);
+    } catch {
+      try { writeJson(to, claimed); } catch {}
+    }
+
+    return { job: claimed, path: to };
   }
+
   return null;
 }
 
