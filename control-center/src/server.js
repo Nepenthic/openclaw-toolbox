@@ -417,6 +417,14 @@ app.get('/api/jobs/summary', async (req, reply) => {
       done: countJson(jobDirs.doneDir),
       failed: countJson(jobDirs.failedDir),
     },
+    worker: {
+      enabled: workerEnabled,
+      pollMs: workerPollMs,
+      drainPerTick: workerDrainPerTick,
+      lastTickAt: workerState.lastTickAt,
+      lastDrained: workerState.lastDrained,
+      lastError: workerState.lastError,
+    },
   });
 });
 
@@ -630,6 +638,12 @@ const workerEnabled = (process.env.CONTROL_CENTER_WORKER_ENABLED || '1') !== '0'
 const workerPollMs = Number(process.env.CONTROL_CENTER_WORKER_POLL_MS || 1500);
 const workerDrainPerTick = Math.max(1, Math.min(50, Number(process.env.CONTROL_CENTER_WORKER_DRAIN_PER_TICK || 10)));
 
+const workerState = {
+  lastTickAt: null,
+  lastDrained: 0,
+  lastError: null,
+};
+
 const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL || `http://127.0.0.1:${process.env.OPENCLAW_GATEWAY_PORT || 18789}`;
 const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || null;
 const nodesRunPath = process.env.OPENCLAW_NODES_RUN_PATH || '/api/nodes/run';
@@ -841,6 +855,9 @@ function startWorkerLoop() {
 
     running = true;
     try {
+      workerState.lastTickAt = Date.now();
+      workerState.lastError = null;
+
       // Recover from worker crashes: cleanup temp files + move stale RUNNING jobs back to pending.
       // Keep these best-effort so a single filesystem hiccup doesn't block job draining.
       try {
@@ -864,6 +881,7 @@ function startWorkerLoop() {
         if (!did) break;
         drained++;
       }
+      workerState.lastDrained = drained;
 
       // If we hit the drain limit and there are still pending jobs, schedule another pass
       // immediately (instead of waiting for the next poll interval). This keeps the queue
@@ -877,6 +895,9 @@ function startWorkerLoop() {
           // ignore
         }
       }
+    } catch (e) {
+      workerState.lastError = e?.message || String(e);
+      throw e;
     } finally {
       running = false;
     }
