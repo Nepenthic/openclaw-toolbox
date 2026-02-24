@@ -449,6 +449,20 @@ app.post('/api/jobs/requeue-stale', async (req, reply) => {
   }
 });
 
+// Manual cleanup: remove leftover *.tmp files from the job queue dirs.
+// This is safe (tmp files are never read as jobs) and helps keep the queue inspectable.
+app.post('/api/jobs/cleanup-tmp', async (req, reply) => {
+  if (!requireAuth(req, reply)) return;
+  try {
+    const removed = jobs.cleanupTmp(jobDirs);
+    audit('jobs.cleanupTmp', req, { ok: true, removed });
+    return reply.send({ ok: true, removed });
+  } catch (e) {
+    audit('jobs.cleanupTmp', req, { ok: false, error: e?.message || String(e) });
+    return reply.code(500).send({ ok: false, error: 'CLEANUP_TMP_FAILED' });
+  }
+});
+
 app.post('/api/unreal/create', async (req, reply) => {
   if (!requireAuth(req, reply)) return;
   const body = req.body || {};
