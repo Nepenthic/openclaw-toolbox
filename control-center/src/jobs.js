@@ -12,9 +12,11 @@ function readJson(p, fallback=null){
 function writeJson(p, obj){ fs.writeFileSync(p, JSON.stringify(obj,null,2), 'utf8'); }
 
 function writeJsonAtomic(p, obj){
-  // Atomic-ish on the same volume: write temp then rename.
+  // Atomic-ish on the same volume: write temp then replace.
+  // On Windows, rename over an existing file can fail, so we unlink first.
   const tmp = p + '.tmp';
   writeJson(tmp, obj);
+  try { fs.unlinkSync(p); } catch {}
   fs.renameSync(tmp, p);
 }
 
