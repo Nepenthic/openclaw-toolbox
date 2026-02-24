@@ -2,18 +2,19 @@ param(
   [string]$StateDir,
   [string]$PendingDir,
   [int]$Max = 20,
-  [switch]$PathsOnly
+  [switch]$PathsOnly,
+  [switch]$ReadyOnly
 )
 
 # Lists pending Control Center jobs in a human/JSON-friendly way.
 # Defaults to the Control Center state dir: ~/.openclaw/control-center
 
 if([string]::IsNullOrWhiteSpace($StateDir)){
-  $home = $env:OPENCLAW_CONTROL_CENTER_STATE_DIR
-  if([string]::IsNullOrWhiteSpace($home)){
-    $home = Join-Path $env:USERPROFILE '.openclaw\\control-center'
+  $stateHome = $env:OPENCLAW_CONTROL_CENTER_STATE_DIR
+  if([string]::IsNullOrWhiteSpace($stateHome)){
+    $stateHome = Join-Path $env:USERPROFILE '.openclaw\\control-center'
   }
-  $StateDir = $home
+  $StateDir = $stateHome
 }
 
 if([string]::IsNullOrWhiteSpace($PendingDir)){
@@ -45,12 +46,25 @@ foreach($f in $files){
     $txt = Get-Content -LiteralPath $f.FullName -Raw -ErrorAction Stop
     $j = $txt | ConvertFrom-Json -ErrorAction Stop
 
+    # If the job is delayed via notBefore, optionally hide it.
+    if($ReadyOnly -and $null -ne $j.notBefore){
+      try {
+        $nb = [DateTimeOffset]::Parse([string]$j.notBefore)
+        if($nb.ToUnixTimeMilliseconds() -gt [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()){
+          continue
+        }
+      } catch {
+        # If parsing fails, treat it as ready so it surfaces for inspection.
+      }
+    }
+
     $items += [pscustomobject]@{
       id        = $j.id
       type      = $j.type
       status    = $j.status
       createdAt = $j.createdAt
       updatedAt = $j.updatedAt
+      notBefore = $j.notBefore
       attempts  = $j.attempts
       nodeId    = $j.nodeId
       file      = $f.Name
