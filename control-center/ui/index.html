@@ -452,7 +452,7 @@ function jobPill(status){
   return { cls: 'warn', label: 'PENDING' };
 }
 
-function renderJobs(items, summaryCounts=null, worker=null){
+function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
   const el = document.getElementById('jobsPanel');
   if(!el) return;
   if(!items.length){
@@ -462,7 +462,8 @@ function renderJobs(items, summaryCounts=null, worker=null){
       const w = worker;
       const wStatus = w ? (w.enabled ? 'enabled' : 'disabled') : 'unknown';
       const wCls = w ? (w.lastError ? 'bad' : (w.enabled ? 'good' : 'warn')) : 'warn';
-      const wLine = w ? `Worker: ${wStatus} · lastTick ${fmtAgo(w.lastTickAt)} · drained ${w.lastDrained ?? 0}` : 'Worker: (not loaded)';
+      const rp = (readyPending === null || readyPending === undefined) ? '?' : (readyPending ? 'yes' : 'no');
+      const wLine = w ? `Worker: ${wStatus} · lastTick ${fmtAgo(w.lastTickAt)} · drained ${w.lastDrained ?? 0} · readyPending ${rp}` : 'Worker: (not loaded)';
       const wErr = (w && w.lastError) ? `<div class="banner bad" style="margin-top:10px">Worker error: <span class="code">${esc(String(w.lastError))}</span></div>` : '';
 
       el.innerHTML = `
@@ -507,7 +508,8 @@ function renderJobs(items, summaryCounts=null, worker=null){
   const w = worker;
   const wStatus = w ? (w.enabled ? 'enabled' : 'disabled') : 'unknown';
   const wCls = w ? (w.lastError ? 'bad' : (w.enabled ? 'good' : 'warn')) : 'warn';
-  const wLine = w ? `Worker: ${wStatus} · lastTick ${fmtAgo(w.lastTickAt)} · drained ${w.lastDrained ?? 0}` : 'Worker: (not loaded)';
+  const rp = (readyPending === null || readyPending === undefined) ? '?' : (readyPending ? 'yes' : 'no');
+  const wLine = w ? `Worker: ${wStatus} · lastTick ${fmtAgo(w.lastTickAt)} · drained ${w.lastDrained ?? 0} · readyPending ${rp}` : 'Worker: (not loaded)';
   const wErr = (w && w.lastError) ? `<div class="banner bad" style="margin-top:10px">Worker error: <span class="code">${esc(String(w.lastError))}</span></div>` : '';
 
   const head = `
@@ -587,13 +589,14 @@ async function loadJobs(){
   const s = await j('/api/jobs/summary');
   const summary = (s.ok && s.data?.counts) ? s.data.counts : null;
   const worker = (s.ok && s.data?.worker) ? s.data.worker : null;
+  const readyPending = (s.ok && (s.data?.readyPending !== undefined)) ? s.data.readyPending : null;
 
   const url = status ? (`/api/jobs?status=${encodeURIComponent(status)}`) : '/api/jobs';
   const r = await j(url);
   document.getElementById('jobsOut').textContent = JSON.stringify({ summary: s, list: r }, null, 2);
 
   const items = r.ok ? (r.data?.jobs || []) : [];
-  renderJobs(items, summary, worker);
+  renderJobs(items, summary, worker, readyPending);
 }
 
 async function kickJobsWorker(){

@@ -411,14 +411,21 @@ app.get('/api/jobs/summary', async (req, reply) => {
       return 0;
     }
   };
+  const counts = {
+    pending: countJson(jobDirs.pendingDir),
+    running: countJson(jobDirs.processingDir),
+    done: countJson(jobDirs.doneDir),
+    failed: countJson(jobDirs.failedDir),
+  };
+
+  // Best-effort hint for the UI: distinguishes “pending but delayed (notBefore)” from “pending and runnable”.
+  let readyPending = null;
+  try { readyPending = jobs.hasReadyPending(jobDirs, { sampleLimit: 25 }); } catch { readyPending = null; }
+
   reply.send({
     ok: true,
-    counts: {
-      pending: countJson(jobDirs.pendingDir),
-      running: countJson(jobDirs.processingDir),
-      done: countJson(jobDirs.doneDir),
-      failed: countJson(jobDirs.failedDir),
-    },
+    counts,
+    readyPending,
     worker: {
       enabled: workerEnabled,
       pollMs: workerPollMs,
