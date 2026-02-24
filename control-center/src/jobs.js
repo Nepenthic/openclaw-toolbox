@@ -251,7 +251,17 @@ function requeueStale(jobDirs, { staleMs = 10 * 60 * 1000, maxAttempts = 3 } = {
       fs.unlinkSync(p);
       moved++;
     } catch {
-      // best-effort
+      // Best-effort fallback: if atomic replace fails (common on Windows when the
+      // destination path already exists / antivirus races), try a plain write.
+      // Crucially: still unlink the stale processing/ file when we succeed, so
+      // the queue doesn't jam forever.
+      try {
+        writeJson(to, next);
+        try { fs.unlinkSync(p); } catch {}
+        moved++;
+      } catch {
+        // give up
+      }
     }
   }
 
