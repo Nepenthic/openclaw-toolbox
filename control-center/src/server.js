@@ -691,6 +691,9 @@ const nodesRunPath = process.env.OPENCLAW_NODES_RUN_PATH || '/api/nodes/run';
 let workerKick = null;
 
 const nodesRunTimeoutMs = Number(process.env.OPENCLAW_NODES_RUN_TIMEOUT_MS || 120000);
+// Reliability: local UE command lines can hang (UBT mutex, stuck toolchain, etc.).
+// Put an upper bound on local execution so the worker loop can continue draining.
+const localCmdTimeoutMs = Math.max(30_000, Math.min(6 * 60 * 60 * 1000, Number(process.env.CONTROL_CENTER_LOCAL_CMD_TIMEOUT_MS || (30 * 60 * 1000))));
 
 async function nodesRun({ node, command, cwd, env }) {
   if (!gatewayToken) {
@@ -868,11 +871,27 @@ async function runCmdLine(job, cmdLine){
     const p = spawn(args[0], args.slice(1), { windowsHide: true });
     let out = '';
     let err = '';
+    let done = false;
+
+    const finish = (r) => {
+      if (done) return;
+      done = true;
+      return resolve(r);
+    };
+
+    // Reliability: ensure local execution can't hang the entire worker loop forever.
+    const t = setTimeout(() => {
+      try { p.kill(); } catch {}
+      finish({ ok: false, error: 'TIMEOUT', output: { timeoutMs: localCmdTimeoutMs, out: out.trim(), err: err.trim() } });
+    }, localCmdTimeoutMs);
+    try { t.unref?.(); } catch {}
+
     p.stdout.on('data', d => out += d.toString('utf8'));
     p.stderr.on('data', d => err += d.toString('utf8'));
     p.on('exit', (code) => {
-      if (code === 0) return resolve({ ok: true, output: { code, out: out.trim() } });
-      return resolve({ ok: false, error: `EXIT_${code}`, output: { code, out: out.trim(), err: err.trim() } });
+      clearTimeout(t);
+      if (code === 0) return finish({ ok: true, output: { code, out: out.trim() } });
+      return finish({ ok: false, error: `EXIT_${code}`, output: { code, out: out.trim(), err: err.trim() } });
     });
   });
 }
