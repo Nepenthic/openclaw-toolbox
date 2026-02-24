@@ -267,7 +267,8 @@ function nodeStatus(node){
   const status = String(pick(node.status, node.state, node.connection, node.health, '')).toLowerCase();
   const connected = node.connected;
   const lastSeen = pick(node.lastSeenAt, node.lastSeen, node.lastSeenMs, node.seenAt, node.seenMs, '');
-  const isStale = typeof lastSeen === 'number' ? (Date.now() - lastSeen) > (REFRESH_EVERY_MS * 2.2) : false;
+  const lastSeenMs = (typeof lastSeen === 'number') ? lastSeen : (Date.parse(lastSeen) || 0);
+  const isStale = lastSeenMs ? (Date.now() - lastSeenMs) > (REFRESH_EVERY_MS * 2.2) : false;
 
   if(errCode === 'timeout' || errCode === 'spawn_failed' || status.includes('error')) return {variant:'bad', label:(errCode || 'error')};
   if(connected === true || status === 'online' || status === 'connected' || status === 'ready') return {variant: isStale ? 'warn' : 'good', label: isStale ? 'stale' : 'online'};
