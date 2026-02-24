@@ -412,8 +412,9 @@ app.get('/api/jobs/:id', async (req, reply) => {
 function enqueueJob(req, jobSpec, auditExtra = {}) {
   const job = jobs.enqueue(jobDirs, jobSpec);
   audit('jobs.enqueue', req, { ok: true, type: jobSpec.type, jobId: job.id, ...auditExtra });
-  // Best-effort: run worker right away so UI doesn't sit on "pending" until next poll.
-  try { if (workerKick) workerKick(); } catch {}
+  // Best-effort: nudge the worker right away so UI doesn't sit on "pending" until next poll.
+  // Use a micro-delay so we don't do heavy work on the request's call stack.
+  try { if (workerKick) setTimeout(() => workerKick(), 0); } catch {}
   return job;
 }
 
