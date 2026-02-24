@@ -416,6 +416,18 @@ function enqueueJob(req, jobSpec, auditExtra = {}) {
   return job;
 }
 
+app.post('/api/jobs/kick', async (req, reply) => {
+  if (!requireAuth(req, reply)) return;
+  try {
+    if (workerKick) workerKick();
+    audit('jobs.kick', req, { ok: true });
+    return reply.send({ ok: true });
+  } catch (e) {
+    audit('jobs.kick', req, { ok: false, error: e?.message || String(e) });
+    return reply.code(500).send({ ok: false, error: 'KICK_FAILED' });
+  }
+});
+
 app.post('/api/unreal/create', async (req, reply) => {
   if (!requireAuth(req, reply)) return;
   const body = req.body || {};
