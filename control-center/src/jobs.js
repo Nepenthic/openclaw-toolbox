@@ -70,7 +70,9 @@ function list(jobDirs, { limit = 50, status = null } = {}){
     : [jobDirs.pendingDir, jobDirs.processingDir, jobDirs.doneDir, jobDirs.failedDir];
 
   for (const dir of dirs) {
-    for (const f of fs.readdirSync(dir)) {
+    let files = [];
+    try { files = fs.readdirSync(dir); } catch { files = []; }
+    for (const f of files) {
       if (!f.endsWith('.json')) continue;
       const p = path.join(dir, f);
       const j = readJson(p);
@@ -85,7 +87,9 @@ function list(jobDirs, { limit = 50, status = null } = {}){
 
 function listPending(jobDirs){
   const items = [];
-  for(const f of fs.readdirSync(jobDirs.pendingDir)){
+  let files = [];
+  try { files = fs.readdirSync(jobDirs.pendingDir); } catch { files = []; }
+  for(const f of files){
     if(!f.endsWith('.json')) continue;
     const p = path.join(jobDirs.pendingDir,f);
     const j = readJson(p);
@@ -171,7 +175,9 @@ function requeueStale(jobDirs, { staleMs = 10 * 60 * 1000, maxAttempts = 3 } = {
   const now = Date.now();
   let moved = 0;
 
-  for(const f of fs.readdirSync(jobDirs.processingDir)){
+  let files = [];
+  try { files = fs.readdirSync(jobDirs.processingDir); } catch { files = []; }
+  for(const f of files){
     if(!f.endsWith('.json')) continue;
     const p = path.join(jobDirs.processingDir, f);
     const j = readJson(p);
