@@ -890,7 +890,7 @@ function startWorkerLoop() {
         try {
           // Only rerun immediately if there are *claimable* pending jobs.
           // Prevents a tight loop when the queue contains only delayed (notBefore) jobs.
-          if (jobs.hasReadyPending(jobDirs)) rerunRequested = true;
+          if (jobs.hasReadyPending(jobDirs, { sampleLimit: 200 })) rerunRequested = true;
         } catch {
           // ignore
         }
@@ -901,7 +901,7 @@ function startWorkerLoop() {
       // immediate retry instead of waiting for the next poll interval.
       if (drained === 0) {
         try {
-          if (jobs.hasReadyPending(jobDirs)) rerunRequested = true;
+          if (jobs.hasReadyPending(jobDirs, { sampleLimit: 200 })) rerunRequested = true;
         } catch {
           // ignore
         }
