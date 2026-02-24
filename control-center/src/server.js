@@ -895,6 +895,17 @@ function startWorkerLoop() {
           // ignore
         }
       }
+
+      // Reliability: if we drained nothing but there appears to be a ready pending job,
+      // it can be due to transient rename/read contention on Windows/AV. Do one extra
+      // immediate retry instead of waiting for the next poll interval.
+      if (drained === 0) {
+        try {
+          if (jobs.hasReadyPending(jobDirs)) rerunRequested = true;
+        } catch {
+          // ignore
+        }
+      }
     } catch (e) {
       workerState.lastError = e?.message || String(e);
       throw e;
