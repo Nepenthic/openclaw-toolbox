@@ -127,7 +127,7 @@ function list(jobDirs, { limit = 50, status = null } = {}){
     for (const f of files) {
       if (!f.endsWith('.json')) continue;
       const p = path.join(dir, f);
-      const j = readJson(p);
+      const j = readJsonRetry(p, null, { attempts: 4, delayMs: 25 });
       if (j) all.push(j);
     }
   }
@@ -145,7 +145,7 @@ function listPending(jobDirs){
   for(const f of files){
     if(!f.endsWith('.json')) continue;
     const p = path.join(jobDirs.pendingDir,f);
-    const j = readJson(p);
+    const j = readJsonRetry(p, null, { attempts: 4, delayMs: 25 });
     if(j) items.push(j);
   }
   items.sort((a,b)=> String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
@@ -346,7 +346,7 @@ function get(jobDirs, id){
   for (const dir of dirs) {
     const p = path.join(dir, id + '.json');
     if (!fs.existsSync(p)) continue;
-    const j = readJson(p);
+    const j = readJsonRetry(p, null, { attempts: 4, delayMs: 25 });
     if (j) return j;
   }
   return null;
