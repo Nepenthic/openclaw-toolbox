@@ -1254,12 +1254,13 @@ function startWorkerLoop() {
   let pendingWatcher = null;
   try {
     let watchKickTimer = null;
+    const watchDebounceMs = Math.max(200, workerKickDelayMs);
     pendingWatcher = fs.watch(jobDirs.pendingDir, { persistent: true }, () => {
       if (watchKickTimer) return;
       watchKickTimer = setTimeout(() => {
         watchKickTimer = null;
         try { workerKick(); } catch {}
-      }, 200);
+      }, watchDebounceMs);
       // Don't keep the process alive just because a debounce timer exists.
       try { watchKickTimer.unref?.(); } catch {}
     });
