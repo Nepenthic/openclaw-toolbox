@@ -545,6 +545,12 @@ app.post('/api/unreal/create', async (req, reply) => {
     return reply.code(400).send({ ok: false, error: 'BAD_KIND' });
   }
 
+  const nodeId = String(body.nodeId || '').trim();
+  if (nodeId && nodeId.length > 120) {
+    audit('jobs.enqueue', req, { ok: false, type: 'unreal.create', error: 'BAD_NODE_ID' });
+    return reply.code(400).send({ ok: false, error: 'BAD_NODE_ID' });
+  }
+
   const job = enqueueJob(req, {
     type: 'unreal.create',
     kind,
@@ -557,9 +563,9 @@ app.post('/api/unreal/create', async (req, reply) => {
     launch: true,
 
     // Where to run this job.
-    // If OPENCLAW_NODE_ID is set, the worker will prefer nodes.run.
-    nodeId: process.env.OPENCLAW_NODE_ID || undefined,
-  }, { name, kind });
+    // If not specified, enqueueJob() will apply CONTROL_CENTER_DEFAULT_NODE_ID when set.
+    nodeId: nodeId || undefined,
+  }, { name, kind, nodeId: nodeId || null });
 
   reply.send({ ok: true, job });
 });
@@ -569,6 +575,7 @@ app.post('/api/unreal/projectfiles', async (req, reply) => {
   const body = req.body || {};
   const uproject = String(body.uproject || '').trim();
   const ueRoot = String(body.ueRoot || 'D:\\UE_5.7').trim();
+  const nodeId = String(body.nodeId || '').trim();
 
   if (!uproject || !/\.uproject$/i.test(uproject) || uproject.length > 400) {
     audit('jobs.enqueue', req, { ok: false, type: 'unreal.projectfiles', error: 'BAD_UPROJECT' });
@@ -579,23 +586,28 @@ app.post('/api/unreal/projectfiles', async (req, reply) => {
     return reply.code(400).send({ ok: false, error: 'BAD_UEROOT' });
   }
 
+  if (nodeId && nodeId.length > 120) {
+    audit('jobs.enqueue', req, { ok: false, type: 'unreal.projectfiles', error: 'BAD_NODE_ID' });
+    return reply.code(400).send({ ok: false, error: 'BAD_NODE_ID' });
+  }
+
   const job = enqueueJob(req, {
     type: 'unreal.projectfiles',
     uproject,
     ueRoot,
-    nodeId: process.env.OPENCLAW_NODE_ID || undefined,
-  }, { uproject });
+    nodeId: nodeId || undefined,
+  }, { uproject, nodeId: nodeId || null });
 
   reply.send({ ok: true, job });
 });
 
-// Stubs (queued now; implementation coming): build + package.
 app.post('/api/unreal/build', async (req, reply) => {
   if (!requireAuth(req, reply)) return;
   const body = req.body || {};
   const uproject = String(body.uproject || '').trim();
   const ueRoot = String(body.ueRoot || 'D:\\UE_5.7').trim();
   const config = String(body.config || 'Development').trim();
+  const nodeId = String(body.nodeId || '').trim();
 
   if (!uproject || !/\.uproject$/i.test(uproject) || uproject.length > 400) {
     audit('jobs.enqueue', req, { ok: false, type: 'unreal.build', error: 'BAD_UPROJECT' });
@@ -606,13 +618,18 @@ app.post('/api/unreal/build', async (req, reply) => {
     return reply.code(400).send({ ok: false, error: 'BAD_UEROOT' });
   }
 
+  if (nodeId && nodeId.length > 120) {
+    audit('jobs.enqueue', req, { ok: false, type: 'unreal.build', error: 'BAD_NODE_ID' });
+    return reply.code(400).send({ ok: false, error: 'BAD_NODE_ID' });
+  }
+
   const job = enqueueJob(req, {
     type: 'unreal.build',
     uproject,
     ueRoot,
     config,
-    nodeId: process.env.OPENCLAW_NODE_ID || undefined,
-  }, { uproject, config });
+    nodeId: nodeId || undefined,
+  }, { uproject, config, nodeId: nodeId || null });
 
   reply.send({ ok: true, job });
 });
@@ -624,6 +641,7 @@ app.post('/api/unreal/package', async (req, reply) => {
   const ueRoot = String(body.ueRoot || 'D:\\UE_5.7').trim();
   const platform = String(body.platform || 'Win64').trim();
   const config = String(body.config || 'Development').trim();
+  const nodeId = String(body.nodeId || '').trim();
 
   if (!uproject || !/\.uproject$/i.test(uproject) || uproject.length > 400) {
     audit('jobs.enqueue', req, { ok: false, type: 'unreal.package', error: 'BAD_UPROJECT' });
@@ -634,14 +652,19 @@ app.post('/api/unreal/package', async (req, reply) => {
     return reply.code(400).send({ ok: false, error: 'BAD_UEROOT' });
   }
 
+  if (nodeId && nodeId.length > 120) {
+    audit('jobs.enqueue', req, { ok: false, type: 'unreal.package', error: 'BAD_NODE_ID' });
+    return reply.code(400).send({ ok: false, error: 'BAD_NODE_ID' });
+  }
+
   const job = enqueueJob(req, {
     type: 'unreal.package',
     uproject,
     ueRoot,
     platform,
     config,
-    nodeId: process.env.OPENCLAW_NODE_ID || undefined,
-  }, { uproject, platform, config });
+    nodeId: nodeId || undefined,
+  }, { uproject, platform, config, nodeId: nodeId || null });
 
   reply.send({ ok: true, job });
 });
