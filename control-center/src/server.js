@@ -1102,6 +1102,43 @@ function startWorkerLoop() {
         audit('worker.requeueStale', null, { ok: false, error: e?.message || String(e) });
       }
 
+      // Reliability: auto-retry a subset of FAILED jobs that are likely transient.
+      // This helps keep the queue moving without manual intervention.
+      try {
+        const autoRetryEnabled = (process.env.CONTROL_CENTER_AUTO_RETRY_FAILED || '1') !== '0';
+        if (autoRetryEnabled) {
+          const maxAttempts = Math.max(1, Math.min(25, Number(process.env.CONTROL_CENTER_MAX_ATTEMPTS || 3)));
+          const minAgeMs = Math.max(0, Number(process.env.CONTROL_CENTER_AUTO_RETRY_MIN_AGE_MS || 30_000));
+          const allow = String(process.env.CONTROL_CENTER_AUTO_RETRY_ERRORS || 'TIMEOUT,FETCH_FAILED,NODES_RUN_FAILED')
+            .split(',').map(s => s.trim()).filter(Boolean);
+
+          let files = [];
+          try { files = fs.readdirSync(jobDirs.failedDir); } catch { files = []; }
+          files = files.filter(f => f.endsWith('.json'));
+          files.sort((a, b) => a.localeCompare(b));
+
+          for (const f of files) {
+            const id = f.replace(/\.json$/i, '');
+            const j = jobs.get(jobDirs, id);
+            if (!j || j.status !== 'FAILED') continue;
+            const attempts = Number(j.attempts || 0);
+            if (attempts >= maxAttempts) continue;
+
+            const finishedAt = Date.parse(j.finishedAt || '') || 0;
+            if (finishedAt && (Date.now() - finishedAt) < minAgeMs) continue;
+
+            const err = String(j.result?.error || '').trim();
+            if (!err || !allow.includes(err)) continue;
+
+            const next = jobs.retryFailed(jobDirs, id, { delayMs: 2_000 });
+            if (next) audit('worker.autoRetryFailed', null, { ok: true, jobId: id, error: err, attempts: next.attempts || attempts });
+            break; // do at most one per tick
+          }
+        }
+      } catch (e) {
+        audit('worker.autoRetryFailed', null, { ok: false, error: e?.message || String(e) });
+      }
+
       // Drain a few jobs per tick to reduce latency.
       // Bound both by count and by a time budget so we don't block the event loop for too long.
       drained = 0;
