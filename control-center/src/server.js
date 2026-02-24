@@ -126,7 +126,8 @@ function timingSafeEqualStr(a, b) {
 
 app.addHook('onRequest', async (req, reply) => {
   if (!hostOk(req)) {
-    reply.code(403).send({ ok: false, error: 'HOST_DENIED' });
+    // IMPORTANT: return to stop route handlers from running after we send.
+    return reply.code(403).send({ ok: false, error: 'HOST_DENIED' });
   }
 });
 
