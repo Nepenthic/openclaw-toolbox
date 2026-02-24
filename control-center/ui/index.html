@@ -304,6 +304,7 @@ function nodeStatus(node){
 
 function renderNodes(items){
   const el = document.getElementById('nodesList');
+  items = Array.isArray(items) ? items : [];
   if(!items.length){
     el.innerHTML = '<div class="muted">No nodes returned.</div>';
     return;
