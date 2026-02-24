@@ -304,7 +304,7 @@ function renderNodes(items){
       errHtml = `<div class="banner bad" style="margin-top:10px"><strong>Error:</strong> ${esc(errCode || 'unknown')} ${errMsg ? '· ' + esc(errMsg) : ''}</div>`;
     }
 
-    const copyIdBtn = id ? `<button class="secondary" style="padding:6px 10px" onclick="copyText('${esc(id)}')">Copy id</button>` : '';
+    const copyIdBtn = id ? `<button class="secondary" style="padding:6px 10px" onclick="copyText(${JSON.stringify(id)})">Copy id</button>` : '';
 
     return `
       <div class="nodeCard">
