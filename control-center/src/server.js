@@ -642,9 +642,23 @@ function startWorkerLoop() {
       if (requeued > 0) audit('worker.requeueStale', null, { ok: true, count: requeued });
 
       // Drain a few jobs per tick to reduce latency.
+      let drained = 0;
       for (let i = 0; i < workerDrainPerTick; i++) {
         const did = await processOneJob();
         if (!did) break;
+        drained++;
+      }
+
+      // If we hit the drain limit and there are still pending jobs, schedule another pass
+      // immediately (instead of waiting for the next poll interval). This keeps the queue
+      // moving under bursts without making a single tick unbounded.
+      if (drained >= workerDrainPerTick) {
+        try {
+          const hasPending = fs.readdirSync(jobDirs.pendingDir).some(f => f.endsWith('.json'));
+          if (hasPending) rerunRequested = true;
+        } catch {
+          // ignore
+        }
       }
     } finally {
       running = false;
