@@ -538,6 +538,10 @@ function renderJobs(items, summaryCounts=null, worker=null){
     const out = j.result?.output ? esc(JSON.stringify(j.result.output, null, 2)) : '';
     const full = esc(JSON.stringify(j, null, 2));
 
+    const copyIdBtn = rawId
+      ? `<button class="secondary" style="padding:6px 10px" onclick="copyText(${JSON.stringify(rawId)})">Copy id</button>`
+      : '';
+
     const retryBtn = (isFailed && rawId)
       ? `<button class="secondary" style="padding:6px 10px" onclick="retryJob(${JSON.stringify(rawId)})">Retry</button>`
       : '';
@@ -550,6 +554,7 @@ function renderJobs(items, summaryCounts=null, worker=null){
             <div class="muted code">${id}</div>
           </div>
           <div class="row tight" style="justify-content:flex-end">
+            ${copyIdBtn}
             ${retryBtn}
             <span class="pill ${p.cls}"><span class="dot"></span><span class="code">${p.label}</span></span>
           </div>
