@@ -507,6 +507,7 @@ function renderJobs(items, summaryCounts=null){
 
     const err = j.result?.error ? esc(String(j.result.error)) : '';
     const out = j.result?.output ? esc(JSON.stringify(j.result.output, null, 2)) : '';
+    const full = esc(JSON.stringify(j, null, 2));
 
     return `
       <div class="nodeCard" style="grid-column:span 12">
@@ -532,6 +533,7 @@ function renderJobs(items, summaryCounts=null){
 
         ${err ? `<div class="banner bad" style="margin-top:10px"><strong>Error:</strong> <span class="code">${err}</span></div>` : ''}
         ${out ? `<details style="margin-top:10px"><summary>Output</summary><pre>${out}</pre></details>` : ''}
+        <details style="margin-top:10px"><summary>Job JSON</summary><pre>${full}</pre></details>
       </div>
     `;
   }).join('');
