@@ -173,7 +173,7 @@
           <option value="FAILED">Failed</option>
         </select>
       </label>
-      <input id="jobsFilter" placeholder="Filter id/type/path…" size="22" oninput="loadJobs().catch(()=>{})" />
+      <input id="jobsFilter" placeholder="Filter id/type/path…" size="22" oninput="applyJobsFilter()" />
       <span class="muted">Auto-refresh: <span id="jobsAutoOn">on</span></span>
     </div>
     <div id="jobsPanel"></div>
@@ -201,6 +201,10 @@ let autoRefresh = true;
 let nodesTimer = null;
 let pendingTimer = null;
 let jobsTimer = null;
+
+// Cache last jobs payload so typing in the filter box doesn't spam the server.
+let jobsCache = { items: [], summary: null, worker: null, readyPending: null };
+let jobsFilterTimer = null;
 
 function setPill(elId, variant, text){
   const el = document.getElementById(elId);
@@ -653,20 +657,12 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
   el.innerHTML = head + `<div class="nodesGrid">${cards}</div>`;
 }
 
-async function loadJobs(){
-  const status = (document.getElementById('jobsStatus')?.value || '').trim();
+function renderJobsFromCache(){
+  const summary = jobsCache.summary;
+  const worker = jobsCache.worker;
+  const readyPending = jobsCache.readyPending;
 
-  // Pull summary counts separately so filters still show overall queue health.
-  const s = await j('/api/jobs/summary');
-  const summary = (s.ok && s.data?.counts) ? s.data.counts : null;
-  const worker = (s.ok && s.data?.worker) ? s.data.worker : null;
-  const readyPending = (s.ok && (s.data?.readyPending !== undefined)) ? s.data.readyPending : null;
-
-  const url = status ? (`/api/jobs?status=${encodeURIComponent(status)}`) : '/api/jobs';
-  const r = await j(url);
-  document.getElementById('jobsOut').textContent = JSON.stringify({ summary: s, list: r }, null, 2);
-
-  let items = r.ok ? (r.data?.jobs || []) : [];
+  let items = Array.isArray(jobsCache.items) ? jobsCache.items : [];
 
   const q = (document.getElementById('jobsFilter')?.value || '').trim().toLowerCase();
   if (q) {
@@ -680,6 +676,37 @@ async function loadJobs(){
   }
 
   renderJobs(items, summary, worker, readyPending);
+}
+
+function applyJobsFilter(){
+  if (jobsFilterTimer) clearTimeout(jobsFilterTimer);
+  jobsFilterTimer = setTimeout(() => {
+    jobsFilterTimer = null;
+    renderJobsFromCache();
+  }, 200);
+}
+
+async function loadJobs(){
+  const status = (document.getElementById('jobsStatus')?.value || '').trim();
+
+  // Pull summary counts separately so filters still show overall queue health.
+  const s = await j('/api/jobs/summary');
+  const summary = (s.ok && s.data?.counts) ? s.data.counts : null;
+  const worker = (s.ok && s.data?.worker) ? s.data.worker : null;
+  const readyPending = (s.ok && (s.data?.readyPending !== undefined)) ? s.data.readyPending : null;
+
+  const url = status ? (`/api/jobs?status=${encodeURIComponent(status)}`) : '/api/jobs';
+  const r = await j(url);
+  document.getElementById('jobsOut').textContent = JSON.stringify({ summary: s, list: r }, null, 2);
+
+  jobsCache = {
+    items: r.ok ? (r.data?.jobs || []) : [],
+    summary,
+    worker,
+    readyPending,
+  };
+
+  renderJobsFromCache();
 }
 
 async function kickJobsWorker(){
