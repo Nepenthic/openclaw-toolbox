@@ -641,7 +641,7 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
           <div class="k">Not before</div><div class="v">${esc(j.notBefore || '')} ${(() => { const nb = toMs(j.notBefore); const now = Date.now(); if(!nb) return '<span class="muted">(—)</span>'; if(now < nb) return `<span class="pill warn" style="margin-left:6px"><span class="dot"></span><span class="code">delayed ${esc(fmtAgo(nb))}</span></span>`; return `<span class="muted">(${esc(fmtAgo(nb))})</span>`; })()}</div>
           <div class="k">Started</div><div class="v">${esc(j.startedAt || '')}</div>
           <div class="k">Finished</div><div class="v">${esc(j.finishedAt || '')}</div>
-          <div class="k">Duration</div><div class="v">${esc(fmtDur((toMs(j.finishedAt)||0) && (toMs(j.startedAt)||0) ? (toMs(j.finishedAt)-toMs(j.startedAt)) : 0))}</div>
+          <div class="k">Duration</div><div class="v">${(() => { const s = toMs(j.startedAt) || 0; const f = toMs(j.finishedAt) || 0; if (s && f && f >= s) return esc(fmtDur(f - s)); if (s && !f) return esc(fmtDur(Date.now() - s)) + ' <span class="muted">(running)</span>'; return '<span class="muted">—</span>'; })()}</div>
           <div class="k">Attempts</div><div class="v code">${esc(String(j.attempts ?? '—'))}</div>
           <div class="k">Node/Worker</div><div class="v code">${nodeId || '—'}</div>
         </div>
