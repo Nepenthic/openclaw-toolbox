@@ -536,6 +536,7 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
       el.innerHTML = `
         <div class="row" style="justify-content:space-between;margin-bottom:10px;gap:10px">
           <div class="row tight">
+            <span class="pill clickable" onclick="setJobsFilter('')"><span class="dot"></span><span class="code">ALL ${(c.pending||0)+(c.running||0)+(c.done||0)+(c.failed||0)}</span></span>
             <span class="pill warn clickable" onclick="setJobsFilter('PENDING')"><span class="dot"></span><span class="code">PENDING ${c.pending||0}</span></span>
             <span class="pill warn clickable" onclick="setJobsFilter('RUNNING')"><span class="dot"></span><span class="code">RUNNING ${c.running||0}</span></span>
             <span class="pill good clickable" onclick="setJobsFilter('DONE')"><span class="dot"></span><span class="code">DONE ${c.done||0}</span></span>
@@ -587,6 +588,7 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
   const head = `
     <div class="row" style="justify-content:space-between;margin-bottom:10px;gap:10px">
       <div class="row tight">
+        <span class="pill clickable" onclick="setJobsFilter('')"><span class="dot"></span><span class="code">ALL ${(() => { const p = totalPending; const r = (sc ? sc.running : counts.RUNNING) || 0; const d = (sc ? sc.done : counts.DONE) || 0; const f = (sc ? sc.failed : counts.FAILED) || 0; return p + r + d + f; })()}</span></span>
         <span class="pill warn clickable" onclick="setJobsFilter('PENDING')"><span class="dot"></span><span class="code">PENDING ${totalPending}</span></span>
         <span class="pill warn clickable" onclick="setJobsFilter('RUNNING')"><span class="dot"></span><span class="code">RUNNING ${(sc ? sc.running : counts.RUNNING) || 0}</span></span>
         <span class="pill good clickable" onclick="setJobsFilter('DONE')"><span class="dot"></span><span class="code">DONE ${(sc ? sc.done : counts.DONE) || 0}</span></span>
