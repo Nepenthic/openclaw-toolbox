@@ -500,14 +500,21 @@ function renderJobs(items, summaryCounts=null){
   const cards = jobs.map(j => {
     const p = jobPill(j.status);
     const title = esc(`${j.type || j.kind || 'job'}`);
-    const id = esc(j.id || '');
+    const rawId = String(j.id || '');
+    const id = esc(rawId);
     const name = esc(j.name || j.input?.name || '');
     const kind = esc(j.kind || j.input?.kind || '');
     const nodeId = esc(j.nodeId || j.workerId || '');
 
+    const isFailed = String(j.status || '').toUpperCase() === 'FAILED';
+
     const err = j.result?.error ? esc(String(j.result.error)) : '';
     const out = j.result?.output ? esc(JSON.stringify(j.result.output, null, 2)) : '';
     const full = esc(JSON.stringify(j, null, 2));
+
+    const retryBtn = (isFailed && rawId)
+      ? `<button class="secondary" style="padding:6px 10px" onclick="retryJob('${esc(rawId)}')">Retry</button>`
+      : '';
 
     return `
       <div class="nodeCard" style="grid-column:span 12">
@@ -517,6 +524,7 @@ function renderJobs(items, summaryCounts=null){
             <div class="muted code">${id}</div>
           </div>
           <div class="row tight" style="justify-content:flex-end">
+            ${retryBtn}
             <span class="pill ${p.cls}"><span class="dot"></span><span class="code">${p.label}</span></span>
           </div>
         </div>
@@ -574,6 +582,17 @@ async function cleanupJobsTmp(){
   const r = await j('/api/jobs/cleanup-tmp', { method: 'POST' });
   document.getElementById('jobsOut').textContent = JSON.stringify(r, null, 2);
   await loadJobs();
+}
+
+async function retryJob(id){
+  const ok = confirm(`Retry failed job ${id} (move FAILED → PENDING)?`);
+  if(!ok) return;
+  const r = await j(`/api/jobs/${encodeURIComponent(id)}/retry`, { method: 'POST', body: '{}' });
+  document.getElementById('jobsOut').textContent = JSON.stringify(r, null, 2);
+  await loadJobs();
+  if(!r.ok){
+    alert('Retry failed: ' + JSON.stringify(r.data));
+  }
 }
 
 async function createProj(kind){
