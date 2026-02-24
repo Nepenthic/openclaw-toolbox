@@ -1070,10 +1070,14 @@ function startWorkerLoop() {
   let running = false;
   let rerunRequested = false;
   let rerunDelayMs = 0;
+  let rerunForced = false;
   const tick = async () => {
     // If a tick is already running, remember to run again once it finishes.
+    // Mark this as a "forced" rerun (e.g. API kick or fs.watch) so we don't
+    // unnecessarily add backoff once the current tick finishes.
     if (running) {
       rerunRequested = true;
+      rerunForced = true;
       return;
     }
 
@@ -1195,9 +1199,11 @@ function startWorkerLoop() {
       let delay = rerunDelayMs;
       // If we got kicked while running but didn’t detect any ready pending work, avoid a busy-loop.
       // (fs.watch can emit noisy events; multiple kicks can stack up.)
-      if (delay === 0 && drained === 0 && !readyPendingHint) delay = 250;
+      // NOTE: if the rerun was explicitly forced (API kick/fs.watch), prefer immediate rerun.
+      if (!rerunForced && delay === 0 && drained === 0 && !readyPendingHint) delay = 250;
       rerunRequested = false;
       rerunDelayMs = 0;
+      rerunForced = false;
       const schedule = delay > 0 ? setTimeout : setImmediate;
       schedule(() => {
         tick().catch((e) => app.log.error(e, 'Worker tick error'));
