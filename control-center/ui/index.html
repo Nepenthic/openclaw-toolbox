@@ -226,10 +226,19 @@ function esc(s){
 function fmtAgo(ts){
   if(!ts) return '—';
   const d = (Date.now() - ts);
-  if(d < 1000) return 'just now';
-  if(d < 60_000) return `${(d/1000).toFixed(1)}s ago`;
-  if(d < 3_600_000) return `${Math.round(d/60_000)}m ago`;
-  return `${Math.round(d/3_600_000)}h ago`;
+  // Past
+  if(d >= 0){
+    if(d < 1000) return 'just now';
+    if(d < 60_000) return `${(d/1000).toFixed(1)}s ago`;
+    if(d < 3_600_000) return `${Math.round(d/60_000)}m ago`;
+    return `${Math.round(d/3_600_000)}h ago`;
+  }
+  // Future
+  const f = -d;
+  if(f < 1000) return 'in <1s';
+  if(f < 60_000) return `in ${(f/1000).toFixed(1)}s`;
+  if(f < 3_600_000) return `in ${Math.round(f/60_000)}m`;
+  return `in ${(f/3_600_000).toFixed(1)}h`;
 }
 
 function toMs(ts){
