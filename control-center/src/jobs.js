@@ -33,6 +33,34 @@ function readJson(p, fallback=null){
   try { return JSON.parse(fs.readFileSync(p,'utf8')); } catch { return fallback; }
 }
 
+function readTextRetry(p, { attempts = 4, delayMs = 25 } = {}){
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    try { return fs.readFileSync(p, 'utf8'); } catch (e) {
+      lastErr = e;
+      const code = e && e.code;
+      // Windows/AV can transiently lock files.
+      if (code === 'EPERM' || code === 'EBUSY' || code === 'EACCES') {
+        sleepMs(delayMs);
+        continue;
+      }
+      break;
+    }
+  }
+  if (lastErr) throw lastErr;
+  return null;
+}
+
+function readJsonRetry(p, fallback=null, opts){
+  try {
+    const txt = readTextRetry(p, opts);
+    if (txt == null) return fallback;
+    return JSON.parse(txt);
+  } catch {
+    return fallback;
+  }
+}
+
 function writeJson(p, obj){ fs.writeFileSync(p, JSON.stringify(obj,null,2), 'utf8'); }
 
 function writeJsonAtomic(p, obj){
@@ -162,7 +190,15 @@ function claimNext(jobDirs){
       continue;
     }
 
-    const j = readJson(to);
+    // Read with a tiny retry: Windows/AV can transiently lock files right after rename.
+    const j = readJsonRetry(to, null, { attempts: 6, delayMs: 25 });
+
+    // If we couldn't read the job at all (transient lock), put it back and move on.
+    // This avoids incorrectly quarantining good jobs under brief file contention.
+    if (!j) {
+      try { renameSyncRetry(to, from); } catch {}
+      continue;
+    }
 
     // If a job has a notBefore timestamp (simple backoff), put it back and move on.
     // This prevents rapid re-claim loops (e.g., missing gateway token).
@@ -174,14 +210,16 @@ function claimNext(jobDirs){
       }
     } catch {}
 
-    if(!j || !j.id){
+    if(!j.id){
       // The file we claimed isn't valid JSON. Quarantine it as FAILED so the
       // queue doesn't jam forever.
       try {
-        const badId = (j && j.id) ? j.id : path.basename(f, '.json');
+        const badId = path.basename(f, '.json');
         const failedPath = jobPathFor(jobDirs, 'FAILED', badId);
         const rec = {
-          ...(j || { id: badId, createdAt: nowIso(), attempts: 0 }),
+          id: badId,
+          createdAt: nowIso(),
+          attempts: 0,
           status: 'FAILED',
           updatedAt: nowIso(),
           finishedAt: nowIso(),
