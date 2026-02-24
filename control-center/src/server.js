@@ -23,6 +23,28 @@ function ensureDir(p) {
   fs.mkdirSync(p, { recursive: true });
 }
 
+function sleepMs(ms){
+  // Synchronous sleep for tiny retry backoffs (Windows/AV file locks).
+  try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); } catch {}
+}
+
+function renameSyncRetry(from, to, { attempts = 6, delayMs = 25 } = {}){
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    try { fs.renameSync(from, to); return true; } catch (e) {
+      lastErr = e;
+      const code = e && e.code;
+      if (code === 'EPERM' || code === 'EBUSY' || code === 'EACCES') {
+        sleepMs(delayMs);
+        continue;
+      }
+      break;
+    }
+  }
+  if (lastErr) throw lastErr;
+  return false;
+}
+
 function readJson(p, fallback = null) {
   try {
     return JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -77,7 +99,8 @@ function maybeRotateAudit() {
 
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const rotated = path.join(stateDir, `audit.${ts}.log`);
-    fs.renameSync(auditPath, rotated);
+    // Windows/AV can transiently lock the file; rotate best-effort with retries.
+    renameSyncRetry(auditPath, rotated, { attempts: 8, delayMs: 50 });
     pruneOldAuditFiles();
   } catch {
     // ignore: best-effort only
