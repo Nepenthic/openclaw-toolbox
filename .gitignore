@@ -49,3 +49,12 @@ __pycache__/
 # Runtime pid files
 *.pid
 switchboard/data/*.pid
+
+# ClawForge / Control Center local outputs
+chaosmonkey/reports/
+media-out/
+
+# Switchboard wrapper outputs
+switchboard/rotate-logs.*.txt
+switchboard/*.out.txt
+switchboard/*.err.txt
