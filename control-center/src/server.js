@@ -503,9 +503,9 @@ function enqueueJob(req, jobSpec, auditExtra = {}) {
 
   const job = jobs.enqueue(jobDirs, spec);
   audit('jobs.enqueue', req, { ok: true, type: spec.type, jobId: job.id, nodeId: spec.nodeId || null, ...auditExtra });
-  // Best-effort: nudge the worker right away so UI doesn't sit on "pending" until next poll.
-  // Use a micro-delay so we don't do heavy work on the request's call stack.
-  try { if (workerKick) setTimeout(() => workerKick(), 0); } catch {}
+  // Best-effort: nudge the worker so UI doesn't sit on "pending" until next poll.
+  // Use a short delay to let the job file become "stable" (see claimNext mtime guard).
+  try { if (workerKick) setTimeout(() => workerKick(), workerKickDelayMs); } catch {}
   return job;
 }
 
@@ -747,6 +747,11 @@ const nodesRunPath = process.env.OPENCLAW_NODES_RUN_PATH || '/api/nodes/run';
 // Allows API handlers to nudge the worker to run immediately after enqueue.
 // (Otherwise we wait up to workerPollMs.)
 let workerKick = null;
+
+// Enqueue uses atomic writes, but on Windows we also apply a short "stability" window
+// (mtime age) before claiming jobs. Kicking the worker too quickly can cause the
+// first tick to skip the fresh job and wait until the next poll.
+const workerKickDelayMs = Math.max(0, Math.min(5_000, Number(process.env.CONTROL_CENTER_WORKER_KICK_DELAY_MS || 250)));
 
 const nodesRunTimeoutMs = Number(process.env.OPENCLAW_NODES_RUN_TIMEOUT_MS || 120000);
 // Reliability: local UE command lines can hang (UBT mutex, stuck toolchain, etc.).
