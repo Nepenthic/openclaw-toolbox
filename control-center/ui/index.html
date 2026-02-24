@@ -135,6 +135,12 @@
     <div class="row" style="margin-top:10px">
       <input id="uprojectPath" placeholder="Full path to .uproject (e.g. D:\\UnrealProjects\\MyGame\\MyGame.uproject)" size="70" />
       <input id="unrealNodeId" placeholder="Node ID (optional, e.g. K15)" size="18" />
+    </div>
+    <div class="row" style="margin-top:10px">
+      <input id="ueRoot" placeholder="UE root (default D:\\UE_5.7)" size="22" />
+      <input id="buildConfig" placeholder="Config (Development/Shipping)" size="22" />
+      <input id="packagePlatform" placeholder="Platform (Win64)" size="14" />
+      <input id="archiveDir" placeholder="Archive dir (optional)" size="34" />
       <button class="secondary" onclick="genProjectFiles()">Generate project files</button>
       <button class="secondary" onclick="queueBuild()">Queue build</button>
       <button class="secondary" onclick="queuePackage()">Queue package</button>
@@ -787,24 +793,31 @@ async function createProj(kind){
 
 async function genProjectFiles(){
   const uproject = document.getElementById('uprojectPath').value.trim();
+  const ueRoot = (document.getElementById('ueRoot')?.value || '').trim();
   const nodeId = (document.getElementById('unrealNodeId')?.value || '').trim();
-  const r = await j('/api/unreal/projectfiles', { method:'POST', body: JSON.stringify({ uproject, nodeId: nodeId || undefined }) });
+  const r = await j('/api/unreal/projectfiles', { method:'POST', body: JSON.stringify({ uproject, ueRoot: ueRoot || undefined, nodeId: nodeId || undefined }) });
   document.getElementById('unrealOut').textContent = JSON.stringify(r, null, 2);
   await loadJobs();
 }
 
 async function queueBuild(){
   const uproject = document.getElementById('uprojectPath').value.trim();
+  const ueRoot = (document.getElementById('ueRoot')?.value || '').trim();
+  const config = (document.getElementById('buildConfig')?.value || '').trim();
   const nodeId = (document.getElementById('unrealNodeId')?.value || '').trim();
-  const r = await j('/api/unreal/build', { method:'POST', body: JSON.stringify({ uproject, nodeId: nodeId || undefined }) });
+  const r = await j('/api/unreal/build', { method:'POST', body: JSON.stringify({ uproject, ueRoot: ueRoot || undefined, config: config || undefined, nodeId: nodeId || undefined }) });
   document.getElementById('unrealOut').textContent = JSON.stringify(r, null, 2);
   await loadJobs();
 }
 
 async function queuePackage(){
   const uproject = document.getElementById('uprojectPath').value.trim();
+  const ueRoot = (document.getElementById('ueRoot')?.value || '').trim();
+  const platform = (document.getElementById('packagePlatform')?.value || '').trim();
+  const config = (document.getElementById('buildConfig')?.value || '').trim();
+  const archiveDir = (document.getElementById('archiveDir')?.value || '').trim();
   const nodeId = (document.getElementById('unrealNodeId')?.value || '').trim();
-  const r = await j('/api/unreal/package', { method:'POST', body: JSON.stringify({ uproject, nodeId: nodeId || undefined }) });
+  const r = await j('/api/unreal/package', { method:'POST', body: JSON.stringify({ uproject, ueRoot: ueRoot || undefined, platform: platform || undefined, config: config || undefined, archiveDir: archiveDir || undefined, nodeId: nodeId || undefined }) });
   document.getElementById('unrealOut').textContent = JSON.stringify(r, null, 2);
   await loadJobs();
 }

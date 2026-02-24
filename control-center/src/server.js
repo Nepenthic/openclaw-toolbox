@@ -714,6 +714,7 @@ app.post('/api/unreal/package', async (req, reply) => {
   const ueRoot = String(body.ueRoot || 'D:\\UE_5.7').trim();
   const platform = String(body.platform || 'Win64').trim();
   const config = String(body.config || 'Development').trim();
+  const archiveDir = String(body.archiveDir || '').trim();
   const nodeId = String(body.nodeId || '').trim();
 
   if (!uproject || !/\.uproject$/i.test(uproject) || uproject.length > 400) {
@@ -723,6 +724,11 @@ app.post('/api/unreal/package', async (req, reply) => {
   if (!ueRoot || ueRoot.length > 200) {
     audit('jobs.enqueue', req, { ok: false, type: 'unreal.package', error: 'BAD_UEROOT' });
     return reply.code(400).send({ ok: false, error: 'BAD_UEROOT' });
+  }
+
+  if (archiveDir && archiveDir.length > 500) {
+    audit('jobs.enqueue', req, { ok: false, type: 'unreal.package', error: 'BAD_ARCHIVE_DIR' });
+    return reply.code(400).send({ ok: false, error: 'BAD_ARCHIVE_DIR' });
   }
 
   if (nodeId && nodeId.length > 120) {
@@ -736,8 +742,9 @@ app.post('/api/unreal/package', async (req, reply) => {
     ueRoot,
     platform,
     config,
+    archiveDir: archiveDir || undefined,
     nodeId: nodeId || undefined,
-  }, { uproject, platform, config, nodeId: nodeId || null });
+  }, { uproject, platform, config, archiveDir: archiveDir || null, nodeId: nodeId || null });
 
   reply.send({ ok: true, job });
 });
