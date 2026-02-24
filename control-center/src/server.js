@@ -517,6 +517,31 @@ app.post('/api/unreal/create', async (req, reply) => {
   reply.send({ ok: true, job });
 });
 
+app.post('/api/unreal/projectfiles', async (req, reply) => {
+  if (!requireAuth(req, reply)) return;
+  const body = req.body || {};
+  const uproject = String(body.uproject || '').trim();
+  const ueRoot = String(body.ueRoot || 'D:\\UE_5.7').trim();
+
+  if (!uproject || !/\.uproject$/i.test(uproject) || uproject.length > 400) {
+    audit('jobs.enqueue', req, { ok: false, type: 'unreal.projectfiles', error: 'BAD_UPROJECT' });
+    return reply.code(400).send({ ok: false, error: 'BAD_UPROJECT' });
+  }
+  if (!ueRoot || ueRoot.length > 200) {
+    audit('jobs.enqueue', req, { ok: false, type: 'unreal.projectfiles', error: 'BAD_UEROOT' });
+    return reply.code(400).send({ ok: false, error: 'BAD_UEROOT' });
+  }
+
+  const job = enqueueJob(req, {
+    type: 'unreal.projectfiles',
+    uproject,
+    ueRoot,
+    nodeId: process.env.OPENCLAW_NODE_ID || undefined,
+  }, { uproject });
+
+  reply.send({ ok: true, job });
+});
+
 // --- Background worker (processes pending jobs) ---
 // This avoids relying on `openclaw ...` CLI, and instead prefers calling the Gateway directly.
 const workerEnabled = (process.env.CONTROL_CENTER_WORKER_ENABLED || '1') !== '0';
@@ -620,6 +645,39 @@ async function runUnrealCreate(job) {
   });
 }
 
+async function runUnrealProjectFiles(job) {
+  // Generates IDE project files for a specific .uproject.
+  // Uses UE's GenerateProjectFiles.bat (Windows).
+  const bat = path.join(job.ueRoot || 'D:\\UE_5.7', 'Engine', 'Build', 'BatchFiles', 'GenerateProjectFiles.bat');
+  const uproject = String(job.uproject || '').trim();
+  const cmdLine = `"${bat}" -project="${uproject}" -game -engine`;
+  const args = ['cmd', '/c', cmdLine];
+
+  if (job.nodeId) {
+    const r = await nodesRun({ node: job.nodeId, command: args });
+
+    if (!r.ok && r.error === 'NO_GATEWAY_TOKEN') {
+      return { ok: false, requeue: true, delayMs: 60_000, error: 'NO_GATEWAY_TOKEN', output: r };
+    }
+    if (!r.ok) return { ok: false, error: 'NODES_RUN_FAILED', output: r };
+    return { ok: true, output: r.json };
+  }
+
+  // Local fallback.
+  const { spawn } = require('node:child_process');
+  return await new Promise((resolve) => {
+    const p = spawn(args[0], args.slice(1), { windowsHide: true });
+    let out = '';
+    let err = '';
+    p.stdout.on('data', d => out += d.toString('utf8'));
+    p.stderr.on('data', d => err += d.toString('utf8'));
+    p.on('exit', (code) => {
+      if (code === 0) return resolve({ ok: true, output: { code, out: out.trim() } });
+      return resolve({ ok: false, error: `EXIT_${code}`, output: { code, out: out.trim(), err: err.trim() } });
+    });
+  });
+}
+
 async function processOneJob() {
   const claimed = jobs.claimNext(jobDirs);
   if (!claimed) return false;
@@ -631,6 +689,8 @@ async function processOneJob() {
     let r = { ok: false, error: 'UNKNOWN_JOB_TYPE' };
     if (job.type === 'unreal.create') {
       r = await runUnrealCreate(job);
+    } else if (job.type === 'unreal.projectfiles') {
+      r = await runUnrealProjectFiles(job);
     }
 
     if (r && r.requeue) {
