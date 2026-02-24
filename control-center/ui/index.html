@@ -36,6 +36,8 @@
     pre{white-space:pre-wrap;word-break:break-word;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:12px;overflow:auto;max-height:420px}
 
     .pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;border:1px solid var(--border);background:var(--chip);font-size:12px;line-height:18px}
+    .pill.clickable{cursor:pointer;user-select:none}
+    .pill.clickable:hover{background:#0c121c}
     .dot{width:8px;height:8px;border-radius:999px;background:#6b7280;display:inline-block}
     .pill.good{border-color:rgba(54,211,153,.35)}
     .pill.good .dot{background:var(--good)}
@@ -452,6 +454,13 @@ function jobPill(status){
   return { cls: 'warn', label: 'PENDING' };
 }
 
+function setJobsFilter(status){
+  const sel = document.getElementById('jobsStatus');
+  if(sel) sel.value = status || '';
+  try { loadJobs(); } catch {}
+  try { location.hash = '#jobs'; } catch {}
+}
+
 function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
   const el = document.getElementById('jobsPanel');
   if(!el) return;
@@ -469,10 +478,10 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
       el.innerHTML = `
         <div class="row" style="justify-content:space-between;margin-bottom:10px;gap:10px">
           <div class="row tight">
-            <span class="pill warn"><span class="dot"></span><span class="code">PENDING ${c.pending||0}</span></span>
-            <span class="pill warn"><span class="dot"></span><span class="code">RUNNING ${c.running||0}</span></span>
-            <span class="pill good"><span class="dot"></span><span class="code">DONE ${c.done||0}</span></span>
-            <span class="pill bad"><span class="dot"></span><span class="code">FAILED ${c.failed||0}</span></span>
+            <span class="pill warn clickable" onclick="setJobsFilter('PENDING')"><span class="dot"></span><span class="code">PENDING ${c.pending||0}</span></span>
+            <span class="pill warn clickable" onclick="setJobsFilter('RUNNING')"><span class="dot"></span><span class="code">RUNNING ${c.running||0}</span></span>
+            <span class="pill good clickable" onclick="setJobsFilter('DONE')"><span class="dot"></span><span class="code">DONE ${c.done||0}</span></span>
+            <span class="pill bad clickable" onclick="setJobsFilter('FAILED')"><span class="dot"></span><span class="code">FAILED ${c.failed||0}</span></span>
           </div>
           <span class="pill ${wCls}"><span class="dot"></span><span class="code">${esc(wLine)}</span></span>
         </div>
@@ -515,10 +524,10 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null){
   const head = `
     <div class="row" style="justify-content:space-between;margin-bottom:10px;gap:10px">
       <div class="row tight">
-        <span class="pill warn"><span class="dot"></span><span class="code">PENDING ${(sc ? sc.pending : counts.PENDING) || 0}</span></span>
-        <span class="pill warn"><span class="dot"></span><span class="code">RUNNING ${(sc ? sc.running : counts.RUNNING) || 0}</span></span>
-        <span class="pill good"><span class="dot"></span><span class="code">DONE ${(sc ? sc.done : counts.DONE) || 0}</span></span>
-        <span class="pill bad"><span class="dot"></span><span class="code">FAILED ${(sc ? sc.failed : counts.FAILED) || 0}</span></span>
+        <span class="pill warn clickable" onclick="setJobsFilter('PENDING')"><span class="dot"></span><span class="code">PENDING ${(sc ? sc.pending : counts.PENDING) || 0}</span></span>
+        <span class="pill warn clickable" onclick="setJobsFilter('RUNNING')"><span class="dot"></span><span class="code">RUNNING ${(sc ? sc.running : counts.RUNNING) || 0}</span></span>
+        <span class="pill good clickable" onclick="setJobsFilter('DONE')"><span class="dot"></span><span class="code">DONE ${(sc ? sc.done : counts.DONE) || 0}</span></span>
+        <span class="pill bad clickable" onclick="setJobsFilter('FAILED')"><span class="dot"></span><span class="code">FAILED ${(sc ? sc.failed : counts.FAILED) || 0}</span></span>
       </div>
       <span class="pill ${wCls}"><span class="dot"></span><span class="code">${esc(wLine)}</span></span>
     </div>
