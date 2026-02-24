@@ -628,6 +628,16 @@ function startWorkerLoop() {
   // Kick once immediately so newly-started workers don't wait a full poll interval.
   workerKick();
 
+  // Bonus reliability/latency improvement: kick the worker as soon as a new job file lands.
+  // This reduces the chance of “stuck pending” when polling intervals are long or the event loop is busy.
+  try {
+    fs.watch(jobDirs.pendingDir, { persistent: false }, () => {
+      try { workerKick(); } catch {}
+    });
+  } catch (e) {
+    app.log.warn({ err: e?.message || String(e) }, 'fs.watch pendingDir failed; falling back to polling only');
+  }
+
   setInterval(() => {
     tick().catch((e) => app.log.error(e, 'Worker tick error'));
   }, workerPollMs);
