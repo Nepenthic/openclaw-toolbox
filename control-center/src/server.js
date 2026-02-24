@@ -939,14 +939,18 @@ function startWorkerLoop() {
         watchKickTimer = null;
         try { workerKick(); } catch {}
       }, 200);
+      // Don't keep the process alive just because a debounce timer exists.
+      try { watchKickTimer.unref?.(); } catch {}
     });
   } catch (e) {
     app.log.warn({ err: e?.message || String(e) }, 'fs.watch pendingDir failed; falling back to polling only');
   }
 
-  setInterval(() => {
+  const interval = setInterval(() => {
     tick().catch((e) => app.log.error(e, 'Worker tick error'));
   }, workerPollMs);
+  // Allow clean shutdowns (worker loop should not prevent process exit).
+  try { interval.unref?.(); } catch {}
 }
 
 async function main() {
