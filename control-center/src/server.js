@@ -570,6 +570,13 @@ async function runUnrealCreate(job) {
     // NOTE: This assumes the Gateway exposes a POST nodes.run endpoint.
     // If your gateway uses a different path, set OPENCLAW_NODES_RUN_PATH.
     const r = await nodesRun({ node: job.nodeId, command: args });
+
+    // Reliability: if the operator forgot to set the gateway token, don’t burn the job.
+    // Requeue so it can run once the token/env is fixed.
+    if (!r.ok && r.error === 'NO_GATEWAY_TOKEN') {
+      return { ok: false, requeue: true, error: 'NO_GATEWAY_TOKEN', output: r };
+    }
+
     if (!r.ok) {
       return { ok: false, error: 'NODES_RUN_FAILED', output: r };
     }
@@ -602,6 +609,12 @@ async function processOneJob() {
     let r = { ok: false, error: 'UNKNOWN_JOB_TYPE' };
     if (job.type === 'unreal.create') {
       r = await runUnrealCreate(job);
+    }
+
+    if (r && r.requeue) {
+      const next = jobs.requeue(jobDirs, job, { error: r.error || 'REQUEUED' });
+      audit('worker.requeue', null, { ok: true, jobId: job.id, type: job.type, error: r.error || 'REQUEUED', attempts: next.attempts || job.attempts || 1 });
+      return true;
     }
 
     const fin = { ok: !!r.ok, output: r.output || null, error: r.ok ? null : (r.error || 'FAILED') };

@@ -250,4 +250,26 @@ function cleanupTmp(jobDirs){
   return removed;
 }
 
-module.exports = { init, enqueue, list, get, claimNext, finish, requeueStale, cleanupTmp };
+function requeue(jobDirs, job, { error = null } = {}){
+  const from = jobPathFor(jobDirs, 'RUNNING', job.id);
+  const to = jobPathFor(jobDirs, 'PENDING', job.id);
+
+  const next = {
+    ...job,
+    status: 'PENDING',
+    updatedAt: nowIso(),
+    requeuedAt: nowIso(),
+    // Preserve existing result unless we’re adding a hint.
+    result: error ? { ok: false, output: null, error: String(error) } : (job.result || null),
+  };
+
+  try {
+    writeJsonAtomic(to, next);
+  } catch {
+    try { writeJson(to, next); } catch {}
+  }
+  try { fs.unlinkSync(from); } catch {}
+  return next;
+}
+
+module.exports = { init, enqueue, list, get, claimNext, finish, requeue, requeueStale, cleanupTmp };
