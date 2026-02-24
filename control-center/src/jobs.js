@@ -5,6 +5,30 @@ const fs = require('node:fs');
 
 function ensureDir(p){ fs.mkdirSync(p,{recursive:true}); }
 
+function sleepMs(ms){
+  // Synchronous sleep for small retry backoffs (avoids async churn in the worker).
+  // Atomics.wait is available in Node and is safe here.
+  try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); } catch {}
+}
+
+function renameSyncRetry(from, to, { attempts = 6, delayMs = 25 } = {}){
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    try { fs.renameSync(from, to); return true; } catch (e) {
+      lastErr = e;
+      const code = e && e.code;
+      // Windows/AV can transiently lock files.
+      if (code === 'EPERM' || code === 'EBUSY' || code === 'EACCES') {
+        sleepMs(delayMs);
+        continue;
+      }
+      break;
+    }
+  }
+  if (lastErr) throw lastErr;
+  return false;
+}
+
 function readJson(p, fallback=null){
   try { return JSON.parse(fs.readFileSync(p,'utf8')); } catch { return fallback; }
 }
@@ -17,7 +41,7 @@ function writeJsonAtomic(p, obj){
   const tmp = p + '.tmp';
   writeJson(tmp, obj);
   try { fs.unlinkSync(p); } catch {}
-  fs.renameSync(tmp, p);
+  renameSyncRetry(tmp, p);
 }
 
 function nowIso(){ return new Date().toISOString(); }
@@ -54,7 +78,7 @@ function enqueue(jobDirs, job){
   const finalPath = path.join(jobDirs.pendingDir, id + '.json');
   const tmpPath = finalPath + '.tmp';
   writeJson(tmpPath, payload);
-  fs.renameSync(tmpPath, finalPath);
+  renameSyncRetry(tmpPath, finalPath);
 
   return payload;
 }
@@ -132,9 +156,9 @@ function claimNext(jobDirs){
     const to = path.join(jobDirs.processingDir, f);
 
     try {
-      fs.renameSync(from, to);
+      renameSyncRetry(from, to);
     } catch {
-      // Someone else claimed it; try next.
+      // Someone else claimed it or the file is transiently locked; try next.
       continue;
     }
 
@@ -145,7 +169,7 @@ function claimNext(jobDirs){
     try {
       const nb = Date.parse(j && j.notBefore ? j.notBefore : '');
       if (nb && Date.now() < nb) {
-        try { fs.renameSync(to, from); } catch {}
+        try { renameSyncRetry(to, from); } catch {}
         continue;
       }
     } catch {}
