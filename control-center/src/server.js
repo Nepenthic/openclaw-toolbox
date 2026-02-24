@@ -803,6 +803,9 @@ const nodesRunPath = process.env.OPENCLAW_NODES_RUN_PATH || '/api/nodes/run';
 // (Otherwise we wait up to workerPollMs.)
 let workerKick = null;
 
+// IMPORTANT: keep a reference to the FSWatcher; otherwise it can be GC'd and stop firing.
+let pendingWatcher = null;
+
 // Enqueue uses atomic writes, but on Windows we also apply a short "stability" window
 // (mtime age) before claiming jobs. Kicking the worker too quickly can cause the
 // first tick to skip the fresh job and wait until the next poll.
@@ -1293,7 +1296,6 @@ function startWorkerLoop() {
   // Bonus reliability/latency improvement: kick the worker as soon as a new job file lands.
   // Debounce to avoid a storm of kicks on Windows (rename/write patterns can emit multiple events).
   // IMPORTANT: keep a reference to the FSWatcher; otherwise it can be GC'd and stop firing.
-  let pendingWatcher = null;
   try {
     let watchKickTimer = null;
     const watchDebounceMs = Math.max(200, workerKickDelayMs);
