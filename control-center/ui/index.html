@@ -297,7 +297,21 @@ function renderNodes(items){
     return;
   }
 
-  const cards = items.map((n) => {
+  // Sort: online/healthy first, then stale/offline, then errors. Keeps the grid readable.
+  const sorted = [...items].sort((a, b) => {
+    const va = nodeStatus(a).variant;
+    const vb = nodeStatus(b).variant;
+    const rank = (v) => (v === 'good' ? 0 : v === 'warn' ? 1 : 2);
+    const ra = rank(va);
+    const rb = rank(vb);
+    if (ra !== rb) return ra - rb;
+
+    const na = pick(a.displayName, a.name, a.deviceName, a.deviceId, a.id, '');
+    const nb = pick(b.displayName, b.name, b.deviceName, b.deviceId, b.id, '');
+    return String(na).localeCompare(String(nb));
+  });
+
+  const cards = sorted.map((n) => {
     const name = pick(n.displayName, n.name, n.deviceName, n.deviceId, n.id, 'Unknown node');
     const id = pick(n.id, n.deviceId, n.nodeId, '');
     const ip = pick(n.remoteIp, n.ip, n.addr, '');
