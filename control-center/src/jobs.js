@@ -80,8 +80,9 @@ function list(jobDirs, { limit = 50, status = null } = {}){
     }
   }
 
-  // Default order: newest first.
-  all.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  // Default order: most recently-touched first (better UX than createdAt-only).
+  const key = (j) => String(j.updatedAt || j.finishedAt || j.startedAt || j.createdAt || '');
+  all.sort((a, b) => key(b).localeCompare(key(a)));
   return all.slice(0, limit);
 }
 
