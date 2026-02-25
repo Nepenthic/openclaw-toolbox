@@ -1188,6 +1188,9 @@ function startWorkerLoop() {
       if (shouldMaintain) {
         lastMaintenanceAt = now;
 
+        // Reliability: fs.watch can die later; periodically try to re-attach.
+        try { attachPendingWatcher(); } catch {}
+
         try {
           const tmpRemoved = jobs.cleanupTmp(jobDirs);
           if (tmpRemoved > 0) audit('worker.cleanupTmp', null, { ok: true, count: tmpRemoved });
@@ -1319,31 +1322,42 @@ function startWorkerLoop() {
   // Bonus reliability/latency improvement: kick the worker as soon as a new job file lands.
   // Debounce to avoid a storm of kicks on Windows (rename/write patterns can emit multiple events).
   // IMPORTANT: keep a reference to the FSWatcher; otherwise it can be GC'd and stop firing.
-  try {
-    let watchKickTimer = null;
-    const watchDebounceMs = Math.max(200, workerKickDelayMs);
-    pendingWatcher = fs.watch(jobDirs.pendingDir, { persistent: true }, () => {
-      if (watchKickTimer) return;
-      watchKickTimer = setTimeout(() => {
-        watchKickTimer = null;
-        try { workerKick(); } catch {}
-      }, watchDebounceMs);
-      // Don't keep the process alive just because a debounce timer exists.
-      try { watchKickTimer.unref?.(); } catch {}
-    });
+  // Reliability: fs.watch can die/close asynchronously; we also attempt to re-attach it during maintenance.
 
-    // Reliability: fs.watch can error asynchronously (network drives, permission changes,
-    // transient OS watcher failures). If that happens, log it and fall back to polling.
-    pendingWatcher.on('error', (err) => {
-      try { app.log.warn({ err: err?.message || String(err) }, 'fs.watch pendingDir errored; continuing with polling'); } catch {}
-      try { pendingWatcher?.close?.(); } catch {}
+  let watchKickTimer = null;
+  const watchDebounceMs = Math.max(200, workerKickDelayMs);
+
+  const attachPendingWatcher = () => {
+    if (pendingWatcher) return true;
+    try {
+      pendingWatcher = fs.watch(jobDirs.pendingDir, { persistent: true }, () => {
+        if (watchKickTimer) return;
+        watchKickTimer = setTimeout(() => {
+          watchKickTimer = null;
+          try { workerKick(); } catch {}
+        }, watchDebounceMs);
+        // Don't keep the process alive just because a debounce timer exists.
+        try { watchKickTimer.unref?.(); } catch {}
+      });
+
+      // Reliability: fs.watch can error asynchronously (network drives, permission changes,
+      // transient OS watcher failures). If that happens, log it and fall back to polling.
+      pendingWatcher.on('error', (err) => {
+        try { app.log.warn({ err: err?.message || String(err) }, 'fs.watch pendingDir errored; continuing with polling'); } catch {}
+        try { pendingWatcher?.close?.(); } catch {}
+        pendingWatcher = null;
+      });
+
+      try { pendingWatcher.unref?.(); } catch {}
+      return true;
+    } catch (e) {
+      app.log.warn({ err: e?.message || String(e) }, 'fs.watch pendingDir failed; falling back to polling only');
       pendingWatcher = null;
-    });
+      return false;
+    }
+  };
 
-    try { pendingWatcher.unref?.(); } catch {}
-  } catch (e) {
-    app.log.warn({ err: e?.message || String(e) }, 'fs.watch pendingDir failed; falling back to polling only');
-  }
+  attachPendingWatcher();
 
   const interval = setInterval(() => {
     tick({ forced: false }).catch((e) => app.log.error(e, 'Worker tick error'));
