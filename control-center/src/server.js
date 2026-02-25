@@ -754,6 +754,8 @@ app.post('/api/unreal/build', async (req, reply) => {
   const config = String(body.config || 'Development').trim();
   const nodeId = String(body.nodeId || '').trim();
 
+  const allowedConfigs = new Set(['Development', 'Shipping', 'DebugGame']);
+
   if (!uproject || !/\.uproject$/i.test(uproject) || uproject.length > 400) {
     audit('jobs.enqueue', req, { ok: false, type: 'unreal.build', error: 'BAD_UPROJECT' });
     return reply.code(400).send({ ok: false, error: 'BAD_UPROJECT' });
@@ -761,6 +763,11 @@ app.post('/api/unreal/build', async (req, reply) => {
   if (!ueRoot || ueRoot.length > 200) {
     audit('jobs.enqueue', req, { ok: false, type: 'unreal.build', error: 'BAD_UEROOT' });
     return reply.code(400).send({ ok: false, error: 'BAD_UEROOT' });
+  }
+
+  if (!allowedConfigs.has(config)) {
+    audit('jobs.enqueue', req, { ok: false, type: 'unreal.build', error: 'BAD_CONFIG', config });
+    return reply.code(400).send({ ok: false, error: 'BAD_CONFIG' });
   }
 
   if (nodeId && nodeId.length > 120) {
@@ -789,6 +796,9 @@ app.post('/api/unreal/package', async (req, reply) => {
   const archiveDir = String(body.archiveDir || '').trim();
   const nodeId = String(body.nodeId || '').trim();
 
+  const allowedConfigs = new Set(['Development', 'Shipping', 'DebugGame']);
+  const allowedPlatforms = new Set(['Win64']);
+
   if (!uproject || !/\.uproject$/i.test(uproject) || uproject.length > 400) {
     audit('jobs.enqueue', req, { ok: false, type: 'unreal.package', error: 'BAD_UPROJECT' });
     return reply.code(400).send({ ok: false, error: 'BAD_UPROJECT' });
@@ -796,6 +806,16 @@ app.post('/api/unreal/package', async (req, reply) => {
   if (!ueRoot || ueRoot.length > 200) {
     audit('jobs.enqueue', req, { ok: false, type: 'unreal.package', error: 'BAD_UEROOT' });
     return reply.code(400).send({ ok: false, error: 'BAD_UEROOT' });
+  }
+
+  if (!allowedPlatforms.has(platform)) {
+    audit('jobs.enqueue', req, { ok: false, type: 'unreal.package', error: 'BAD_PLATFORM', platform });
+    return reply.code(400).send({ ok: false, error: 'BAD_PLATFORM' });
+  }
+
+  if (!allowedConfigs.has(config)) {
+    audit('jobs.enqueue', req, { ok: false, type: 'unreal.package', error: 'BAD_CONFIG', config });
+    return reply.code(400).send({ ok: false, error: 'BAD_CONFIG' });
   }
 
   if (archiveDir && archiveDir.length > 500) {
