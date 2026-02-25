@@ -5,7 +5,7 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "test": "node src/jobs.hasReadyPending.test.js"
+    "test": "node src/jobs.hasReadyPending.test.js && node src/jobs.claimNext.badJson.test.js && node src/jobs.claimNext.skipDelayed.test.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
