@@ -410,12 +410,14 @@ function runOpenclawJson(args, { timeoutMs = 6000 } = {}) {
 }
 
 app.get('/api/openclaw/state', async (req, reply) => {
+  if (!requireSession(req, reply)) return;
   const paired = readJson(path.join(openclawStateDir, 'devices', 'paired.json'), {});
   const pending = readJson(path.join(openclawStateDir, 'devices', 'pending.json'), {});
   reply.send({ ok: true, stateDir: openclawStateDir, devices: { pendingCount: Object.keys(pending).length, pairedCount: Object.keys(paired).length } });
 });
 
 app.get('/api/nodes', async (req, reply) => {
+  if (!requireSession(req, reply)) return;
   // Cheap last-known from paired devices.
   const paired = readJson(path.join(openclawStateDir, 'devices', 'paired.json'), {});
   const nodes = Object.values(paired)
@@ -425,8 +427,13 @@ app.get('/api/nodes', async (req, reply) => {
 });
 
 app.get('/api/nodes/live', async (req, reply) => {
-  const r = await runOpenclawJson(['nodes', 'status', '--json'], { timeoutMs: 6000 });
-  reply.send(r);
+  if (!requireSession(req, reply)) return;
+  try {
+    const r = await runOpenclawJson(['nodes', 'status', '--json'], { timeoutMs: 6000 });
+    reply.send(r);
+  } catch (e) {
+    reply.send({ ok: false, error: 'NODES_LIVE_FAILED', message: e?.message || String(e) });
+  }
 });
 
 // --- Approvals (device pairing) ---
