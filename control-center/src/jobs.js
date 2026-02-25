@@ -29,6 +29,26 @@ function renameSyncRetry(from, to, { attempts = 6, delayMs = 25 } = {}){
   return false;
 }
 
+function unlinkSyncRetry(p, { attempts = 6, delayMs = 25 } = {}){
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    try { fs.unlinkSync(p); return true; } catch (e) {
+      lastErr = e;
+      const code = e && e.code;
+      // Windows/AV can transiently lock files.
+      if (code === 'EPERM' || code === 'EBUSY' || code === 'EACCES') {
+        sleepMs(delayMs);
+        continue;
+      }
+      // If it vanished, treat as success.
+      if (code === 'ENOENT') return true;
+      break;
+    }
+  }
+  if (lastErr) throw lastErr;
+  return false;
+}
+
 function readJson(p, fallback=null){
   try { return JSON.parse(fs.readFileSync(p,'utf8')); } catch { return fallback; }
 }
@@ -68,7 +88,7 @@ function writeJsonAtomic(p, obj){
   // On Windows, rename over an existing file can fail, so we unlink first.
   const tmp = p + '.tmp';
   writeJson(tmp, obj);
-  try { fs.unlinkSync(p); } catch {}
+  try { unlinkSyncRetry(p, { attempts: 6, delayMs: 25 }); } catch {}
   renameSyncRetry(tmp, p);
 }
 
@@ -285,7 +305,7 @@ function finish(jobDirs, job, { ok, output=null, error=null } = {}){
   } catch {
     try { writeJson(to, finished); } catch {}
   }
-  try { fs.unlinkSync(from); } catch {}
+  try { unlinkSyncRetry(from, { attempts: 6, delayMs: 25 }); } catch {}
   return finished;
 }
 
@@ -400,7 +420,7 @@ function requeue(jobDirs, job, { error = null, delayMs = 0 } = {}){
   } catch {
     try { writeJson(to, next); } catch {}
   }
-  try { fs.unlinkSync(from); } catch {}
+  try { unlinkSyncRetry(from, { attempts: 6, delayMs: 25 }); } catch {}
   return next;
 }
 
@@ -431,7 +451,7 @@ function retryFailed(jobDirs, id, { delayMs = 0 } = {}){
   } catch {
     try { writeJson(to, next); } catch {}
   }
-  try { fs.unlinkSync(from); } catch {}
+  try { unlinkSyncRetry(from, { attempts: 6, delayMs: 25 }); } catch {}
   return next;
 }
 
