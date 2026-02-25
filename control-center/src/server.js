@@ -1479,6 +1479,10 @@ function startWorkerLoop() {
   function attachPendingWatcher() {
     if (pendingWatcher) return true;
     try {
+      // Reliability: if the pending dir is missing (manual cleanup, race, or partial state wipe),
+      // recreate it so fs.watch can attach and the worker can resume without operator intervention.
+      try { ensureDir(jobDirs.pendingDir); } catch {}
+
       pendingWatcher = fs.watch(jobDirs.pendingDir, { persistent: true }, () => {
         if (watchKickTimer) return;
         watchKickTimer = setTimeout(() => {
