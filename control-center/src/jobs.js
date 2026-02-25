@@ -237,12 +237,37 @@ function claimNext(jobDirs){
     }
 
     // Read with a tiny retry: Windows/AV can transiently lock files right after rename.
-    const j = readJsonRetry(to, null, { attempts: 6, delayMs: 25 });
+    // IMPORTANT: distinguish between "unreadable right now" (retry later) vs "invalid JSON" (quarantine).
+    const txt = readTextRetry(to, { attempts: 6, delayMs: 25 });
 
     // If we couldn't read the job at all (transient lock), put it back and move on.
     // This avoids incorrectly quarantining good jobs under brief file contention.
-    if (!j) {
+    if (txt == null) {
       try { renameSyncRetry(to, from); } catch {}
+      continue;
+    }
+
+    let j = null;
+    try {
+      j = JSON.parse(txt);
+    } catch {
+      // The file we claimed isn't valid JSON. Quarantine it as FAILED so the
+      // queue doesn't jam forever.
+      try {
+        const badId = path.basename(f, '.json');
+        const failedPath = jobPathFor(jobDirs, 'FAILED', badId);
+        const rec = {
+          id: badId,
+          createdAt: nowIso(),
+          attempts: 0,
+          status: 'FAILED',
+          updatedAt: nowIso(),
+          finishedAt: nowIso(),
+          result: { ok: false, output: null, error: 'BAD_JOB_JSON' },
+        };
+        try { writeJsonAtomic(failedPath, rec); } catch { try { writeJson(failedPath, rec); } catch {} }
+      } catch {}
+      try { unlinkSyncRetry(to, { attempts: 6, delayMs: 25 }); } catch {}
       continue;
     }
 
@@ -257,7 +282,7 @@ function claimNext(jobDirs){
     } catch {}
 
     if(!j.id){
-      // The file we claimed isn't valid JSON. Quarantine it as FAILED so the
+      // The job JSON is missing an id; quarantine it as FAILED so the
       // queue doesn't jam forever.
       try {
         const badId = path.basename(f, '.json');
