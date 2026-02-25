@@ -385,7 +385,7 @@ function renderNodes(items){
         </div>
 
         ${errHtml}
-        ${(errDetail && (String(errCode).toLowerCase() === 'spawn_failed')) ? `<details style="margin-top:10px"><summary>Details</summary><pre>${esc(errDetail)}</pre></details>` : ''}
+        ${errDetail ? `<details style="margin-top:10px"><summary>Details</summary><pre>${esc(errDetail)}</pre></details>` : ''}
       </div>
     `;
   }).join('');
