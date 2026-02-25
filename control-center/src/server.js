@@ -438,6 +438,7 @@ app.get('/api/nodes/live', async (req, reply) => {
 
 // --- Approvals (device pairing) ---
 app.get('/api/devices/pending', async (req, reply) => {
+  if (!requireSession(req, reply)) return;
   const pending = readJson(path.join(openclawStateDir, 'devices', 'pending.json'), {});
   // Return a stable array for UI.
   const items = Object.values(pending).map(r => ({
