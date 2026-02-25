@@ -1388,16 +1388,27 @@ function startWorkerLoop() {
 
       // Reliability: if we drained nothing but there appears to be a ready pending job,
       // it can be due to transient rename/read contention on Windows/AV. Do one extra
-      // immediate retry instead of waiting for the next poll interval.
+      // retry soon instead of waiting for the next poll interval.
       if (drained === 0) {
         try {
-          if (jobs.hasReadyPending(jobDirs, { sampleLimit: readyPendingSampleLimit })) {
+          const ready = jobs.hasReadyPending(jobDirs, { sampleLimit: readyPendingSampleLimit });
+          if (ready) {
             readyPendingHint = true;
             rerunRequested = true;
             // Avoid a tight setImmediate loop on transient Windows/AV contention.
-            // If a job is present but we couldn’t claim anything this tick, back off a bit
-            // to reduce disk churn while still being responsive.
             rerunDelayMs = Math.max(rerunDelayMs, 500);
+          } else {
+            // If the queue is intentionally delayed (notBefore), schedule a wake-up
+            // near the earliest notBefore we can see, so the queue resumes promptly
+            // without constant polling.
+            const nextNb = jobs.nextNotBeforeSample(jobDirs, { sampleLimit: readyPendingSampleLimit });
+            if (nextNb) {
+              const delay = Math.max(250, Math.min(workerPollMs, nextNb - Date.now() + 50));
+              if (delay > 0 && delay < workerPollMs) {
+                rerunRequested = true;
+                rerunDelayMs = Math.max(rerunDelayMs, delay);
+              }
+            }
           }
         } catch {
           // ignore

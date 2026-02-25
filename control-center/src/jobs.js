@@ -516,6 +516,53 @@ function retryFailed(jobDirs, id, { delayMs = 0 } = {}){
   return next;
 }
 
+function samplePendingIdxs(files, sampleLimit){
+  // Sampling strategy used by hasReadyPending() and nextNotBeforeSample().
+  // Ensure we sample across the queue (head+tail) so we don't miss runnable jobs
+  // when the head is delayed.
+  const effectiveN = (files.length > 1 && sampleLimit < 2) ? 2 : sampleLimit;
+  const n = Math.min(effectiveN, files.length);
+  const idxs = [];
+  if (files.length <= n) {
+    for (let i = 0; i < files.length; i++) idxs.push(i);
+  } else if (n === 2) {
+    idxs.push(0, files.length - 1);
+  } else {
+    const step = (files.length - 1) / (n - 1);
+    for (let k = 0; k < n; k++) {
+      const i = Math.min(files.length - 1, Math.floor(k * step));
+      if (idxs.length === 0 || idxs[idxs.length - 1] !== i) idxs.push(i);
+    }
+    if (idxs[idxs.length - 1] !== (files.length - 1)) idxs.push(files.length - 1);
+  }
+  return idxs;
+}
+
+function nextNotBeforeSample(jobDirs, { sampleLimit = 25 } = {}){
+  // Best-effort: find the earliest future notBefore among a sample of pending jobs.
+  // Used by the worker to schedule a wake-up when the queue is intentionally delayed.
+  let files = [];
+  try { files = fs.readdirSync(jobDirs.pendingDir); } catch { files = []; }
+  files = files.filter(f => f.endsWith('.json'));
+  files.sort((a, b) => a.localeCompare(b));
+
+  const now = Date.now();
+  let best = null;
+
+  const idxs = samplePendingIdxs(files, sampleLimit);
+  for (const i of idxs) {
+    const p = path.join(jobDirs.pendingDir, files[i]);
+    const j = readJsonRetry(p, null, { attempts: 2, delayMs: 5 });
+    if (!j) continue;
+    const nb = Date.parse(j.notBefore || '') || 0;
+    if (nb && nb > now) {
+      if (!best || nb < best) best = nb;
+    }
+  }
+
+  return best;
+}
+
 function hasReadyPending(jobDirs, { sampleLimit = 25 } = {}) {
   // Best-effort: determine if there is at least one claimable pending job.
   // Avoids a tight worker loop when only delayed (notBefore) jobs are present.
@@ -529,41 +576,12 @@ function hasReadyPending(jobDirs, { sampleLimit = 25 } = {}) {
 
   const now = Date.now();
 
-  // IMPORTANT: Don't only sample the oldest N jobs.
-  // If the head of the queue is all delayed (notBefore), but newer jobs are runnable,
-  // sampling only from the front can incorrectly return false and let the worker idle.
-  // Sampling strategy:
-  // - We want to avoid reading *every* pending job when there are thousands.
-  // - But sampling only the oldest N can miss runnable jobs if the head of the queue is delayed.
-  // - Additionally, if sampleLimit is 1, a naive evenly-spaced sample will only look at index 0.
-  //   That defeats the purpose of sampling across the queue.
-  // So: ensure we sample at least the head + tail when there is more than one item.
-  const effectiveN = (files.length > 1 && sampleLimit < 2) ? 2 : sampleLimit;
-  const n = Math.min(effectiveN, files.length);
-  const idxs = [];
-  if (files.length <= n) {
-    for (let i = 0; i < files.length; i++) idxs.push(i);
-  } else if (n === 2) {
-    idxs.push(0, files.length - 1);
-  } else {
-    // Evenly sample across [0, len-1] while always including head+tail.
-    // Use (len-1)/(n-1) so we don't systematically miss the middle when len
-    // isn't divisible by n (common case).
-    const step = (files.length - 1) / (n - 1);
-    for (let k = 0; k < n; k++) {
-      const i = Math.min(files.length - 1, Math.floor(k * step));
-      // de-dupe in case of rounding collisions
-      if (idxs.length === 0 || idxs[idxs.length - 1] !== i) idxs.push(i);
-    }
-    // If floor rounding caused us to miss the tail, force-include it.
-    if (idxs[idxs.length - 1] !== (files.length - 1)) idxs.push(files.length - 1);
-  }
+  const idxs = samplePendingIdxs(files, sampleLimit);
 
   for (const i of idxs) {
     const p = path.join(jobDirs.pendingDir, files[i]);
 
     // Keep behavior aligned with claimNext(): if a file is *too fresh*, treat it as not-ready.
-    // This reduces churn when the worker is kicked immediately after enqueue (Windows/AV/disk latency).
     try {
       const st = fs.statSync(p);
       if (st && st.mtimeMs && (Date.now() - st.mtimeMs) < claimStabilityMs) continue;
@@ -574,17 +592,16 @@ function hasReadyPending(jobDirs, { sampleLimit = 25 } = {}) {
 
     const j = readJsonRetry(p, null, { attempts: 2, delayMs: 5 });
     // Reliability: if we can't read a pending job due to transient Windows/AV locks,
-    // treat it as “ready” so the worker will retry quickly instead of idling until
-    // the next poll interval.
+    // treat it as “ready” so the worker will retry quickly instead of idling.
     if (!j) return true;
     try {
       const nb = Date.parse(j.notBefore || '');
       if (!nb || now >= nb) return true;
     } catch {
-      return true; // if parsing fails, treat as ready so the worker can quarantine it
+      return true;
     }
   }
   return false;
 }
 
-module.exports = { init, enqueue, list, get, claimNext, finish, requeue, requeueStale, cleanupTmp, retryFailed, hasReadyPending };
+module.exports = { init, enqueue, list, get, claimNext, finish, requeue, requeueStale, cleanupTmp, retryFailed, hasReadyPending, nextNotBeforeSample };
