@@ -53,5 +53,5 @@ If a Gateway token is configured, certain jobs can be executed via `nodes.run` o
 
 - `OPENCLAW_GATEWAY_URL` – e.g. `http://127.0.0.1:18789`
 - `OPENCLAW_GATEWAY_TOKEN` – **do not commit**
-- `CONTROL_CENTER_NODES_RUN_PATH` – nodes.run path (default: `/v1/nodes/run`)
+- `OPENCLAW_NODES_RUN_PATH` – nodes.run path (default: `/api/nodes/run`)
 - `CONTROL_CENTER_DEFAULT_NODE_ID` – preferred node id for new jobs (e.g. `K15`)
