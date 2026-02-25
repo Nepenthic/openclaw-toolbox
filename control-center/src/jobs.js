@@ -94,6 +94,16 @@ function writeJsonAtomic(p, obj){
 
 function nowIso(){ return new Date().toISOString(); }
 
+function auditAppend(jobDirs, event){
+  // Minimal append-only audit log for local actions.
+  // Best-effort only: never throw.
+  try {
+    if(!jobDirs || !jobDirs.auditLogPath) return;
+    const line = JSON.stringify({ ts: nowIso(), ...event }) + '\n';
+    fs.appendFileSync(jobDirs.auditLogPath, line, 'utf8');
+  } catch {}
+}
+
 function newId(){
   // good enough for local queue ids
   return (Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,10));
@@ -113,8 +123,11 @@ function init(jobRoot){
   const processingDir = path.join(jobRoot,'processing');
   const doneDir = path.join(jobRoot,'done');
   const failedDir = path.join(jobRoot,'failed');
+  const auditDir = path.join(jobRoot, 'audit');
+  const auditLogPath = path.join(auditDir, 'audit.log');
   ensureDir(pendingDir); ensureDir(processingDir); ensureDir(doneDir); ensureDir(failedDir);
-  return { pendingDir, processingDir, doneDir, failedDir };
+  ensureDir(auditDir);
+  return { pendingDir, processingDir, doneDir, failedDir, auditDir, auditLogPath };
 }
 
 function enqueue(jobDirs, job){
@@ -128,6 +141,7 @@ function enqueue(jobDirs, job){
   writeJson(tmpPath, payload);
   renameSyncRetry(tmpPath, finalPath);
 
+  auditAppend(jobDirs, { kind: 'job.enqueue', id, type: payload.type || null });
   return payload;
 }
 
@@ -306,6 +320,8 @@ function finish(jobDirs, job, { ok, output=null, error=null } = {}){
     try { writeJson(to, finished); } catch {}
   }
   try { unlinkSyncRetry(from, { attempts: 6, delayMs: 25 }); } catch {}
+
+  auditAppend(jobDirs, { kind: 'job.finish', id: job.id, status, ok: !!ok, error: error ? String(error) : null });
   return finished;
 }
 
