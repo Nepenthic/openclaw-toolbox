@@ -620,7 +620,8 @@ app.get('/api/jobs/:id', async (req, reply) => {
 // Minimal audit log tail (append-only lines written by jobs.js).
 // Returns newest-first so UIs can show "latest activity" easily.
 app.get('/api/audit', async (req, reply) => {
-  if (!requireAuth(req, reply)) return;
+  // Read-only: allow any active session (same as /api/jobs and /api/audit/tail).
+  if (!requireSession(req, reply)) return;
 
   const limit = Math.max(1, Math.min(500, Number(req.query?.limit || 200)));
   const maxBytes = Math.max(1_024, Math.min(2_000_000, Number(req.query?.maxBytes || 250_000)));
