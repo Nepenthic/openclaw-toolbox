@@ -1407,6 +1407,13 @@ function startWorkerLoop() {
         pendingWatcher = null;
       });
 
+      // Reliability: some platforms/drives can close watchers without emitting 'error'.
+      // If that happens, clear our reference so maintenance can re-attach later.
+      pendingWatcher.on('close', () => {
+        try { app.log.warn('fs.watch pendingDir closed; will fall back to polling and attempt re-attach'); } catch {}
+        pendingWatcher = null;
+      });
+
       try { pendingWatcher.unref?.(); } catch {}
       return true;
     } catch (e) {
