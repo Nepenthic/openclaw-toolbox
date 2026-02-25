@@ -263,7 +263,13 @@ function claimNext(jobDirs){
           status: 'FAILED',
           updatedAt: nowIso(),
           finishedAt: nowIso(),
-          result: { ok: false, output: null, error: 'BAD_JOB_JSON' },
+          result: {
+            ok: false,
+            error: 'BAD_JOB_JSON',
+            // Keep a small snippet for debugging corrupted/partial writes.
+            // Avoid huge logs: cap at ~2KB.
+            output: { snippet: String(txt || '').slice(0, 2000) },
+          },
         };
         try { writeJsonAtomic(failedPath, rec); } catch { try { writeJson(failedPath, rec); } catch {} }
       } catch {}
@@ -294,7 +300,12 @@ function claimNext(jobDirs){
           status: 'FAILED',
           updatedAt: nowIso(),
           finishedAt: nowIso(),
-          result: { ok: false, output: null, error: 'BAD_JOB_JSON' },
+          result: {
+            ok: false,
+            error: 'BAD_JOB_JSON',
+            // Preserve some context to debug malformed jobs.
+            output: { job: j || null },
+          },
         };
         try { writeJsonAtomic(failedPath, rec); } catch { try { writeJson(failedPath, rec); } catch {} }
       } catch {}
