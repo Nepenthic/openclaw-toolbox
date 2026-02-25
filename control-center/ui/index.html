@@ -377,7 +377,7 @@ function renderNodes(items){
           <div class="k">IP</div><div class="v code">${esc(ip || '—')}</div>
           <div class="k">Platform</div><div class="v">${esc(platform || '—')}</div>
           <div class="k">Version</div><div class="v code">${esc(ver || '—')}</div>
-          <div class="k">Last seen</div><div class="v">${esc(fmtAgo(lastSeenMs))}</div>
+          <div class="k">Last seen</div><div class="v" title="${esc(lastSeenMs ? new Date(lastSeenMs).toISOString() : '')}">${esc(fmtAgo(lastSeenMs))}</div>
         </div>
 
         ${errHtml}
