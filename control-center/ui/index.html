@@ -622,7 +622,7 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null, n
       try {
         if (!readyPending && nextNotBefore) {
           const ts = Date.parse(nextNotBefore);
-          if (ts) nextBanner = `<div class="banner" style="margin-top:10px">Next runnable job: <span class="code">${esc(new Date(ts).toISOString())}</span> · ${esc(fmtAgo(ts))}</div>`;
+          if (ts) nextBanner = `<div class="banner" style="margin-top:10px">Next runnable job: <span class="code">${esc(new Date(ts).toISOString())}</span> <span class="muted">(${esc(fmtAgo(ts))})</span></div>`;
         }
       } catch {}
 
@@ -683,7 +683,7 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null, n
   try {
     if (!readyPending && nextNotBefore) {
       const ts = Date.parse(nextNotBefore);
-      if (ts) nextBanner = `<div class="banner" style="margin-top:10px">Next runnable job: <span class="code">${esc(new Date(ts).toISOString())}</span> · ${esc(fmtAgo(ts))}</div>`;
+      if (ts) nextBanner = `<div class="banner" style="margin-top:10px">Next runnable job: <span class="code">${esc(new Date(ts).toISOString())}</span> <span class="muted">(${esc(fmtAgo(ts))})</span></div>`;
     }
   } catch {}
 
