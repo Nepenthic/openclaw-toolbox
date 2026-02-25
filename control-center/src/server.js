@@ -497,7 +497,14 @@ app.get('/api/jobs', async (req, reply) => {
   if (!requireSession(req, reply)) return;
   const q = req.query || {};
   const limit = Math.max(1, Math.min(200, Number(q.limit || 50)));
-  const status = q.status ? String(q.status) : null; // PENDING|RUNNING|DONE|FAILED
+
+  let status = q.status ? String(q.status) : null; // PENDING|RUNNING|DONE|FAILED
+  if (status != null) {
+    status = status.trim().toUpperCase();
+    const ok = (status === 'PENDING' || status === 'RUNNING' || status === 'DONE' || status === 'FAILED');
+    if (!ok) return reply.code(400).send({ ok: false, error: 'BAD_STATUS', status });
+  }
+
   reply.send({ ok: true, jobs: jobs.list(jobDirs, { limit, status }) });
 });
 

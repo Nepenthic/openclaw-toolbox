@@ -570,7 +570,12 @@ function hasReadyPending(jobDirs, { sampleLimit = 25 } = {}) {
   const claimStabilityMs = Math.max(0, Math.min(5_000, Number(process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS || 200)));
 
   let files = [];
-  try { files = fs.readdirSync(jobDirs.pendingDir); } catch { files = []; }
+  try { files = fs.readdirSync(jobDirs.pendingDir); }
+  catch {
+    // Reliability: if the directory read fails (transient FS/permission hiccup),
+    // treat as "ready" so callers retry soon instead of idling.
+    return true;
+  }
   files = files.filter(f => f.endsWith('.json'));
   files.sort((a, b) => a.localeCompare(b));
 
