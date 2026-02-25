@@ -170,6 +170,7 @@
       <button class="secondary" onclick="kickJobsWorker()">Kick worker</button>
       <button class="secondary" onclick="requeueStaleJobs()">Requeue stale</button>
       <button class="secondary" onclick="cleanupJobsTmp()">Cleanup tmp</button>
+      <button class="secondary" onclick="loadJobsAudit()">Job audit (tail)</button>
       <label class="muted">Show:
         <select id="jobsStatus" onchange="loadJobs()">
           <option value="">All</option>
@@ -183,6 +184,10 @@
       <span class="muted">Auto-refresh: <span id="jobsAutoOn">on</span></span>
     </div>
     <div id="jobsPanel"></div>
+    <details style="margin-top:12px">
+      <summary>Job queue audit (debug)</summary>
+      <pre id="jobsAuditOut"></pre>
+    </details>
     <pre id="jobsOut" style="display:none"></pre>
   </div>
 
@@ -807,6 +812,31 @@ function applyJobsFilter(){
     jobsFilterTimer = null;
     renderJobsFromCache();
   }, 200);
+}
+
+async function loadJobsAudit(){
+  const el = document.getElementById('jobsAuditOut');
+  if(!el) return;
+
+  const r = await j('/api/jobs/audit/tail?limit=200');
+  if(!r.ok){
+    el.textContent = JSON.stringify(r, null, 2);
+    return;
+  }
+
+  const items = (r.data && Array.isArray(r.data.items)) ? r.data.items : [];
+  // Render as one-line summaries (newest-first).
+  const lines = items.map((x) => {
+    const ts = pick(x.ts, x.time, x.at, '');
+    const kind = pick(x.kind, x.event, x.type, 'event');
+    const id = pick(x.id, x.jobId, '');
+    const type = pick(x.jobType, x.type, '');
+    const status = pick(x.status, '');
+    const err = pick(x.error, '');
+    const tail = err ? ` · ${String(err)}` : '';
+    return `${ts} ${kind}${id ? ' · ' + String(id).slice(0, 8) : ''}${type ? ' · ' + type : ''}${status ? ' · ' + status : ''}${tail}`.trim();
+  });
+  el.textContent = lines.join('\n');
 }
 
 async function loadJobs(){
