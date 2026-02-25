@@ -82,10 +82,13 @@ function writeJob(p, j){
 
   // Regression: if a pending job is temporarily unreadable (eg Windows/AV lock or partial write),
   // hasReadyPending should return true so the worker will retry soon instead of idling.
-  fs.rmSync(dirs.pendingDir, { recursive: true, force: true });
-  fs.mkdirSync(dirs.pendingDir, { recursive: true });
-  fs.writeFileSync(path.join(dirs.pendingDir, 'bad.json'), '{ this is not json', 'utf8');
-  const ready3 = jobs.hasReadyPending(dirs, { sampleLimit: 25 });
+  // On Windows (esp. under cmd.exe), fs.rmSync can fail to fully clear a dir due to transient
+  // file locks. Use a fresh temp queue root for this case so the test is deterministic.
+  process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS = '0';
+  const root2 = mkTmpDir();
+  const dirs2 = jobs.init(root2);
+  fs.writeFileSync(path.join(dirs2.pendingDir, 'bad.json'), '{ this is not json', 'utf8');
+  const ready3 = jobs.hasReadyPending(dirs2, { sampleLimit: 25 });
   assert(ready3 === true, 'expected ready when a pending job is unreadable');
 
   // cleanup
@@ -93,6 +96,7 @@ function writeJob(p, j){
   else process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS = prevStabilityGlobal;
 
   try { fs.rmSync(root, { recursive: true, force: true }); } catch {}
+  try { fs.rmSync(root2, { recursive: true, force: true }); } catch {}
 
   process.stdout.write('ok\n');
 })();
