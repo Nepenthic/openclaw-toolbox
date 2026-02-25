@@ -368,7 +368,8 @@ function runOpenclawJson(args, { timeoutMs = 6000 } = {}) {
     const t = setTimeout(() => {
       if (done) return;
       done = true;
-      try { p.kill('SIGKILL'); } catch {}
+      // Windows: signals are best-effort; plain kill() is most portable.
+      try { p.kill(); } catch {}
       return resolve({ ok: false, error: 'TIMEOUT', timeoutMs });
     }, timeoutMs);
 
