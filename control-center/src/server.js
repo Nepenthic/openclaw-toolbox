@@ -847,9 +847,12 @@ let workerKick = null;
 let pendingWatcher = null;
 
 // Enqueue uses atomic writes, but on Windows we also apply a short "stability" window
-// (mtime age) before claiming jobs. Kicking the worker too quickly can cause the
-// first tick to skip the fresh job and wait until the next poll.
+// (mtime age) before claiming jobs (see jobs.claimNext). Kicking the worker too quickly
+// can cause the first tick to skip the fresh job and wait until the next poll.
 const workerKickDelayMs = Math.max(0, Math.min(5_000, Number(process.env.CONTROL_CENTER_WORKER_KICK_DELAY_MS || 250)));
+// Keep fs.watch kicks aligned with the claim stability window so the worker doesn't
+// repeatedly wake up "too early" and then idle until the next poll.
+const jobClaimStabilityMs = Math.max(0, Math.min(5_000, Number(process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS || 200)));
 
 const nodesRunTimeoutMs = Number(process.env.OPENCLAW_NODES_RUN_TIMEOUT_MS || 120000);
 // Reliability: local UE command lines can hang (UBT mutex, stuck toolchain, etc.).
@@ -1347,7 +1350,9 @@ function startWorkerLoop() {
   // Reliability: fs.watch can die/close asynchronously; we also attempt to re-attach it during maintenance.
 
   let watchKickTimer = null;
-  const watchDebounceMs = Math.max(200, workerKickDelayMs);
+  // Ensure watch-triggered kicks happen after the claim stability window.
+  // Add a tiny cushion to reduce contention on busy disks/AV.
+  const watchDebounceMs = Math.max(200, workerKickDelayMs, jobClaimStabilityMs + 50);
 
   const attachPendingWatcher = () => {
     if (pendingWatcher) return true;
