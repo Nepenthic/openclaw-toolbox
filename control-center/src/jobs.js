@@ -272,6 +272,7 @@ function claimNext(jobDirs){
           },
         };
         try { writeJsonAtomic(failedPath, rec); } catch { try { writeJson(failedPath, rec); } catch {} }
+        auditAppend(jobDirs, { kind: 'job.quarantine', id: badId, reason: 'BAD_JOB_JSON' });
       } catch {}
       try { unlinkSyncRetry(to, { attempts: 6, delayMs: 25 }); } catch {}
       continue;
@@ -308,6 +309,7 @@ function claimNext(jobDirs){
           },
         };
         try { writeJsonAtomic(failedPath, rec); } catch { try { writeJson(failedPath, rec); } catch {} }
+        auditAppend(jobDirs, { kind: 'job.quarantine', id: badId, reason: 'BAD_JOB_JSON_MISSING_ID' });
       } catch {}
       try { unlinkSyncRetry(to, { attempts: 6, delayMs: 25 }); } catch {}
       continue;
