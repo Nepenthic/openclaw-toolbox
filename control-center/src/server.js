@@ -593,7 +593,10 @@ function enqueueJob(req, jobSpec, auditExtra = {}) {
   audit('jobs.enqueue', req, { ok: true, type: spec.type, jobId: job.id, nodeId: spec.nodeId || null, ...auditExtra });
   // Best-effort: nudge the worker so UI doesn't sit on "pending" until next poll.
   // Use a short delay to let the job file become "stable" (see claimNext mtime guard).
-  try { if (workerKick) setTimeout(() => workerKick(), workerKickDelayMs); } catch {}
+  try {
+    if (workerKick) setTimeout(() => workerKick(), workerKickDelayMs);
+    else workerKickPending = true;
+  } catch {}
   return job;
 }
 
@@ -842,6 +845,9 @@ const nodesRunPath = process.env.OPENCLAW_NODES_RUN_PATH || '/api/nodes/run';
 // Allows API handlers to nudge the worker to run immediately after enqueue.
 // (Otherwise we wait up to workerPollMs.)
 let workerKick = null;
+// If a job is enqueued before startWorkerLoop() finishes wiring workerKick,
+// remember it so we can kick once the loop is ready.
+let workerKickPending = false;
 
 // IMPORTANT: keep a reference to the FSWatcher; otherwise it can be GC'd and stop firing.
 let pendingWatcher = null;
@@ -1343,6 +1349,12 @@ function startWorkerLoop() {
 
   // Expose a best-effort "kick" for API handlers.
   workerKick = () => tick({ forced: true }).catch((e) => app.log.error(e, 'Worker tick error'));
+
+  // If a job arrived before workerKick was ready, run one catch-up tick now.
+  if (workerKickPending) {
+    workerKickPending = false;
+    try { setImmediate(() => workerKick()); } catch {}
+  }
 
   // Bonus reliability/latency improvement: kick the worker as soon as a new job file lands.
   // Debounce to avoid a storm of kicks on Windows (rename/write patterns can emit multiple events).
