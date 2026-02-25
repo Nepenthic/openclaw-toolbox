@@ -190,6 +190,15 @@
     <h2>Audit (tail)</h2>
     <div class="row">
       <button onclick="loadAudit()">Refresh</button>
+      <label class="muted">Limit:
+        <select id="auditLimit" onchange="loadAudit()">
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="200" selected>200</option>
+          <option value="500">500</option>
+        </select>
+      </label>
+      <input id="auditFilter" placeholder="Filter event/url/error…" size="26" oninput="loadAudit().catch(()=>{})" />
       <span class="muted">Requires session (login).</span>
     </div>
     <pre id="auditOut"></pre>
@@ -518,7 +527,9 @@ async function loadState(){
 }
 
 async function loadAudit(){
-  const r = await j('/api/audit/tail?limit=200');
+  const limitSel = document.getElementById('auditLimit');
+  const limit = Math.max(1, Math.min(500, Number(limitSel ? limitSel.value : 200)));
+  const r = await j(`/api/audit/tail?limit=${encodeURIComponent(limit)}`);
   const el = document.getElementById('auditOut');
   if(!el) return;
 
@@ -531,8 +542,11 @@ async function loadAudit(){
   // Most-recent first.
   items.reverse();
 
-  // Human-ish one-line summary, plus raw JSON underneath if needed.
-  const lines = items.map((x) => {
+  const qEl = document.getElementById('auditFilter');
+  const q = (qEl ? String(qEl.value || '').trim().toLowerCase() : '');
+
+  // Human-ish one-line summary.
+  let lines = items.map((x) => {
     const ts = pick(x.ts, x.time, x.at, '');
     const event = pick(x.event, x.type, 'event');
     const method = pick(x.method, '');
@@ -544,6 +558,9 @@ async function loadAudit(){
     return `${ts} ${event}${ok ? ` (${ok})` : ''}${method || url ? ` · ${method} ${url}`.trimEnd() : ''}${ip ? ` · ${ip}` : ''}${tail}`.trim();
   });
 
+  if(q){
+    lines = lines.filter(l => String(l).toLowerCase().includes(q));
+  }
   el.textContent = lines.join('\n');
 }
 
