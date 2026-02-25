@@ -87,7 +87,12 @@ function writeJob(p, j){
   process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS = '0';
   const root2 = mkTmpDir();
   const dirs2 = jobs.init(root2);
-  fs.writeFileSync(path.join(dirs2.pendingDir, 'bad.json'), '{ this is not json', 'utf8');
+  const pBad = path.join(dirs2.pendingDir, 'bad.json');
+  fs.writeFileSync(pBad, '{ this is not json', 'utf8');
+  // Make it look old enough to avoid any stability-window skips if the env var
+  // isn't honored for some reason under npm on Windows.
+  const oldBad = new Date(Date.now() - 10_000);
+  try { fs.utimesSync(pBad, oldBad, oldBad); } catch {}
   const ready3 = jobs.hasReadyPending(dirs2, { sampleLimit: 25 });
   assert(ready3 === true, 'expected ready when a pending job is unreadable');
 
