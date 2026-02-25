@@ -543,6 +543,9 @@ function samplePendingIdxs(files, sampleLimit){
 function nextNotBeforeSample(jobDirs, { sampleLimit = 25 } = {}){
   // Best-effort: find the earliest future notBefore among a sample of pending jobs.
   // Used by the worker to schedule a wake-up when the queue is intentionally delayed.
+  // Keep behavior aligned with claimNext()/hasReadyPending(): respect the same stability window.
+  const claimStabilityMs = Math.max(0, Math.min(5_000, Number(process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS || 200)));
+
   let files = [];
   try { files = fs.readdirSync(jobDirs.pendingDir); } catch { files = []; }
   files = files.filter(f => f.endsWith('.json'));
@@ -554,6 +557,16 @@ function nextNotBeforeSample(jobDirs, { sampleLimit = 25 } = {}){
   const idxs = samplePendingIdxs(files, sampleLimit);
   for (const i of idxs) {
     const p = path.join(jobDirs.pendingDir, files[i]);
+
+    // Skip very fresh files (atomic rename write window / AV contention).
+    try {
+      const st = fs.statSync(p);
+      if (st && st.mtimeMs && (Date.now() - st.mtimeMs) < claimStabilityMs) continue;
+    } catch {
+      // If stat fails, ignore this file for scheduling and let normal polling handle it.
+      continue;
+    }
+
     const j = readJsonRetry(p, null, { attempts: 2, delayMs: 5 });
     if (!j) continue;
     const nb = Date.parse(j.notBefore || '') || 0;
