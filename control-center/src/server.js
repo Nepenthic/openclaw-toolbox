@@ -1289,7 +1289,7 @@ function startWorkerLoop() {
   let rerunDelayMs = 0;
   let rerunForced = false;
 
-  // Keep filesystem “maintenance” (tmp cleanup, stale requeue, failed auto-retry)
+  // Keep filesystem maintenance (tmp cleanup, stale requeue, failed auto-retry)
   // from running on every tick. This reduces disk churn with short poll intervals.
   const maintenanceEveryMs = Math.max(1_000, Math.min(5 * 60_000, Number(process.env.CONTROL_CENTER_WORKER_MAINTENANCE_EVERY_MS || 15_000)));
   let lastMaintenanceAt = 0;
