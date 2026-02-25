@@ -494,6 +494,7 @@ app.get('/api/jobs/audit/tail', async (req, reply) => {
 
 // --- Unreal jobs (queued for worker) ---
 app.get('/api/jobs', async (req, reply) => {
+  if (!requireSession(req, reply)) return;
   const q = req.query || {};
   const limit = Math.max(1, Math.min(200, Number(q.limit || 50)));
   const status = q.status ? String(q.status) : null; // PENDING|RUNNING|DONE|FAILED
@@ -501,6 +502,7 @@ app.get('/api/jobs', async (req, reply) => {
 });
 
 app.get('/api/jobs/summary', async (req, reply) => {
+  if (!requireSession(req, reply)) return;
   // Lightweight counts for the UI (avoid listing everything client-side).
   const countJson = (dir) => {
     try {
@@ -589,6 +591,7 @@ app.get('/api/jobs/summary', async (req, reply) => {
 });
 
 app.get('/api/jobs/:id', async (req, reply) => {
+  if (!requireSession(req, reply)) return;
   const id = String(req.params.id || '').trim();
   if (!id) return reply.code(400).send({ ok: false, error: 'BAD_ID' });
   const job = jobs.get(jobDirs, id);
