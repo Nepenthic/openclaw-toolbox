@@ -315,10 +315,15 @@ function nodeStatus(node){
   const connected = node.connected;
   const lastSeen = pick(node.lastSeenAt, node.lastSeen, node.lastSeenMs, node.seenAt, node.seenMs, '');
   const lastSeenMs = (typeof lastSeen === 'number') ? lastSeen : (Date.parse(lastSeen) || 0);
-  const isStale = lastSeenMs ? (Date.now() - lastSeenMs) > (REFRESH_EVERY_MS * 2.2) : false;
+  const ageMs = lastSeenMs ? (Date.now() - lastSeenMs) : Infinity;
+  const isStale = lastSeenMs ? ageMs > (REFRESH_EVERY_MS * 2.2) : false;
+  const isVeryStale = lastSeenMs ? ageMs > (REFRESH_EVERY_MS * 6) : false;
 
   if(errCode === 'timeout' || errCode === 'spawn_failed' || status.includes('error')) return {variant:'bad', label:(errCode || 'error')};
-  if(connected === true || status === 'online' || status === 'connected' || status === 'ready') return {variant: isStale ? 'warn' : 'good', label: isStale ? 'stale' : 'online'};
+  if(connected === true || status === 'online' || status === 'connected' || status === 'ready'){
+    if (isVeryStale) return { variant:'bad', label:'very stale' };
+    return { variant: isStale ? 'warn' : 'good', label: isStale ? 'stale' : 'online' };
+  }
   if(connected === false || status === 'offline' || status === 'disconnected') return {variant:'warn', label:'offline'};
   if(status) return {variant:'warn', label:status};
   return {variant:'warn', label:'unknown'};
