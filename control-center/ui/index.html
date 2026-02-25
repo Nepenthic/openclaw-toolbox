@@ -286,6 +286,10 @@ function fmtDur(ms){
 
 function normItems(data){
   if(!data) return [];
+  // Many API wrappers return { ok, code, json } or { ok, data }.
+  // Unwrap common nesting so UI keeps working even when endpoints return a wrapper.
+  if (data && typeof data === 'object' && data.json) return normItems(data.json);
+
   if(Array.isArray(data)) return data;
   if(Array.isArray(data.items)) return data.items;
   if(Array.isArray(data.nodes)) return data.nodes;
