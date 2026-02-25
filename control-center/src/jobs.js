@@ -390,6 +390,9 @@ function cleanupTmp(jobDirs){
   // If the process crashed mid-write, we can be left with *.tmp files.
   // They are never valid jobs (we only ever read *.json), but they can
   // accumulate and confuse manual inspection. Clean them up best-effort.
+  //
+  // Reliability: on Windows, AV/file indexers can transiently lock files,
+  // so use the retrying unlink helper.
   const dirs = [jobDirs.pendingDir, jobDirs.processingDir, jobDirs.doneDir, jobDirs.failedDir];
   let removed = 0;
   for (const dir of dirs) {
@@ -397,7 +400,10 @@ function cleanupTmp(jobDirs){
     try { files = fs.readdirSync(dir); } catch { files = []; }
     for (const f of files) {
       if (!f.endsWith('.tmp')) continue;
-      try { fs.unlinkSync(path.join(dir, f)); removed++; } catch {}
+      try {
+        const p = path.join(dir, f);
+        if (unlinkSyncRetry(p, { attempts: 6, delayMs: 25 })) removed++;
+      } catch {}
     }
   }
   return removed;
