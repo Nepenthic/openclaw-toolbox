@@ -319,6 +319,7 @@ function claimNext(jobDirs){
       try { writeJson(to, claimed); } catch {}
     }
 
+    auditAppend(jobDirs, { kind: 'job.claim', id: claimed.id, type: claimed.type || null, attempts: claimed.attempts || 1 });
     return { job: claimed, path: to };
   }
 
