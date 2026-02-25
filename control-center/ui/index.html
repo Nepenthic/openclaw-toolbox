@@ -612,7 +612,7 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null, n
       const wStatus = w ? (w.enabled ? 'enabled' : 'disabled') : 'unknown';
       const wCls = w ? (w.lastError ? 'bad' : (w.enabled ? 'good' : 'warn')) : 'warn';
       const rp = (readyPending === null || readyPending === undefined) ? '?' : (readyPending ? 'yes' : 'no');
-      const wLine = w ? `Worker: ${wStatus} · lastTick ${fmtAgo(w.lastTickAt)} · drained ${w.lastDrained ?? 0} · readyPending ${rp}` : 'Worker: (not loaded)';
+      const wLine = w ? `Worker: ${wStatus} · lastTick ${fmtAgo(w.lastTickAt)} · drained ${w.lastDrained ?? 0} · readyPending ${rp}${(w && w.lastJob && w.lastJob.id) ? ' · lastJob ' + (w.lastJob.status || '?') + ' ' + (w.lastJob.type || '?') + ' ' + String(w.lastJob.id).slice(0, 8) + ' ' + fmtAgo(w.lastJob.ts) : ''}` : 'Worker: (not loaded)';
       const wErr = (w && w.lastError) ? `<div class="banner bad" style="margin-top:10px">Worker error: <span class="code">${esc(String(w.lastError))}</span></div>` : '';
       const readyWarn = (readyPending && (c.pending||0) > 0 && w && w.enabled && (w.lastDrained ?? 0) === 0)
         ? `<div class="banner warn" style="margin-top:10px">Ready pending jobs detected but worker drained 0 last tick — try <span class="code">Kick worker</span>.</div>`
@@ -672,7 +672,7 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null, n
   const wStatus = w ? (w.enabled ? 'enabled' : 'disabled') : 'unknown';
   const wCls = w ? (w.lastError ? 'bad' : (w.enabled ? 'good' : 'warn')) : 'warn';
   const rp = (readyPending === null || readyPending === undefined) ? '?' : (readyPending ? 'yes' : 'no');
-  const wLine = w ? `Worker: ${wStatus} · lastTick ${fmtAgo(w.lastTickAt)} · drained ${w.lastDrained ?? 0} · readyPending ${rp}` : 'Worker: (not loaded)';
+  const wLine = w ? `Worker: ${wStatus} · lastTick ${fmtAgo(w.lastTickAt)} · drained ${w.lastDrained ?? 0} · readyPending ${rp}${(w && w.lastJob && w.lastJob.id) ? ' · lastJob ' + (w.lastJob.status || '?') + ' ' + (w.lastJob.type || '?') + ' ' + String(w.lastJob.id).slice(0, 8) + ' ' + fmtAgo(w.lastJob.ts) : ''}` : 'Worker: (not loaded)';
   const wErr = (w && w.lastError) ? `<div class="banner bad" style="margin-top:10px">Worker error: <span class="code">${esc(String(w.lastError))}</span></div>` : '';
   const totalPending = (sc ? sc.pending : counts.PENDING) || 0;
   const readyWarn = (readyPending && totalPending > 0 && w && w.enabled && (w.lastDrained ?? 0) === 0)
