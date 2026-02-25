@@ -1479,7 +1479,22 @@ function startWorkerLoop() {
   const watchDebounceMs = Math.max(200, workerKickDelayMs, jobClaimStabilityMs + 50);
 
   function attachPendingWatcher() {
-    if (pendingWatcher) return true;
+    // If the pending dir disappears/reappears, an existing watcher may become inert.
+    // Detect that and re-attach.
+    if (pendingWatcher) {
+      try {
+        if (!fs.existsSync(jobDirs.pendingDir)) {
+          try { pendingWatcher.close?.(); } catch {}
+          pendingWatcher = null;
+        } else {
+          return true;
+        }
+      } catch {
+        // If we can't stat it, fall through and attempt a re-attach.
+        try { pendingWatcher.close?.(); } catch {}
+        pendingWatcher = null;
+      }
+    }
     try {
       // Reliability: if the pending dir is missing (manual cleanup, race, or partial state wipe),
       // recreate it so fs.watch can attach and the worker can resume without operator intervention.
