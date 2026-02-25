@@ -704,6 +704,10 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null, n
       ? `<button class="secondary" style="padding:6px 10px" onclick="retryJob(${JSON.stringify(rawId)})">Retry</button>`
       : '';
 
+    const copyErrBtn = (err)
+      ? `<button class="secondary" style="padding:6px 10px" onclick="copyText(${JSON.stringify(String(j.result?.error || ''))})">Copy error</button>`
+      : '';
+
     return `
       <div class="nodeCard" style="grid-column:span 12">
         <div class="nodeHead">
@@ -713,6 +717,7 @@ function renderJobs(items, summaryCounts=null, worker=null, readyPending=null, n
           </div>
           <div class="row tight" style="justify-content:flex-end">
             ${copyIdBtn}
+            ${copyErrBtn}
             ${retryBtn}
             <span class="pill ${p.cls}"><span class="dot"></span><span class="code">${p.label}</span></span>
           </div>
