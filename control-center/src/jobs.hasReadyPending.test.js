@@ -26,6 +26,10 @@ function writeJob(p, j){
   const root = mkTmpDir();
   const dirs = jobs.init(root);
 
+  // Keep tests deterministic: disable stability window unless explicitly testing it.
+  const prevStabilityGlobal = process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS;
+  process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS = '0';
+
   const now = Date.now();
   const farFuture = new Date(now + 60 * 60 * 1000).toISOString();
 
@@ -51,6 +55,31 @@ function writeJob(p, j){
   const ready2 = jobs.hasReadyPending(dirs, { sampleLimit: 3 });
   assert(ready2 === true, 'expected ready pending job when only middle is runnable (sampleLimit=3)');
 
+  // Regression: respect claim stability window (avoid treating brand-new enqueued files as ready).
+  // This prevents the worker from thrashing when it gets kicked immediately after enqueue.
+  fs.rmSync(dirs.pendingDir, { recursive: true, force: true });
+  fs.mkdirSync(dirs.pendingDir, { recursive: true });
+
+  const prevStability = process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS;
+  process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS = '5000';
+
+  const pFresh = path.join(dirs.pendingDir, 'fresh.json');
+  writeJob(pFresh, { id: 'fresh', status: 'PENDING', createdAt: new Date(now).toISOString() });
+  // Ensure mtime is "now" (fresh).
+  try { fs.utimesSync(pFresh, new Date(), new Date()); } catch {}
+
+  const readyFresh = jobs.hasReadyPending(dirs, { sampleLimit: 25 });
+  assert(readyFresh === false, 'expected not-ready when only pending job is within stability window');
+
+  // Make it look old enough.
+  const old = new Date(Date.now() - 10_000);
+  try { fs.utimesSync(pFresh, old, old); } catch {}
+  const readyOld = jobs.hasReadyPending(dirs, { sampleLimit: 25 });
+  assert(readyOld === true, 'expected ready after pending job ages past stability window');
+
+  if (prevStability === undefined) delete process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS;
+  else process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS = prevStability;
+
   // Regression: if a pending job is temporarily unreadable (eg Windows/AV lock or partial write),
   // hasReadyPending should return true so the worker will retry soon instead of idling.
   fs.rmSync(dirs.pendingDir, { recursive: true, force: true });
@@ -60,6 +89,9 @@ function writeJob(p, j){
   assert(ready3 === true, 'expected ready when a pending job is unreadable');
 
   // cleanup
+  if (prevStabilityGlobal === undefined) delete process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS;
+  else process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS = prevStabilityGlobal;
+
   try { fs.rmSync(root, { recursive: true, force: true }); } catch {}
 
   process.stdout.write('ok\n');

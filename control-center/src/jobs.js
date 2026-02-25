@@ -519,6 +519,9 @@ function retryFailed(jobDirs, id, { delayMs = 0 } = {}){
 function hasReadyPending(jobDirs, { sampleLimit = 25 } = {}) {
   // Best-effort: determine if there is at least one claimable pending job.
   // Avoids a tight worker loop when only delayed (notBefore) jobs are present.
+  // Keep logic consistent with claimNext(): respect the same stability window.
+  const claimStabilityMs = Math.max(0, Math.min(5_000, Number(process.env.CONTROL_CENTER_JOB_CLAIM_STABILITY_MS || 200)));
+
   let files = [];
   try { files = fs.readdirSync(jobDirs.pendingDir); } catch { files = []; }
   files = files.filter(f => f.endsWith('.json'));
@@ -558,6 +561,17 @@ function hasReadyPending(jobDirs, { sampleLimit = 25 } = {}) {
 
   for (const i of idxs) {
     const p = path.join(jobDirs.pendingDir, files[i]);
+
+    // Keep behavior aligned with claimNext(): if a file is *too fresh*, treat it as not-ready.
+    // This reduces churn when the worker is kicked immediately after enqueue (Windows/AV/disk latency).
+    try {
+      const st = fs.statSync(p);
+      if (st && st.mtimeMs && (Date.now() - st.mtimeMs) < claimStabilityMs) continue;
+    } catch {
+      // If stat fails, treat it as ready so the worker will retry/clean up.
+      return true;
+    }
+
     const j = readJsonRetry(p, null, { attempts: 2, delayMs: 5 });
     // Reliability: if we can't read a pending job due to transient Windows/AV locks,
     // treat it as “ready” so the worker will retry quickly instead of idling until
