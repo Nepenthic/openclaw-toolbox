@@ -51,6 +51,14 @@ function writeJob(p, j){
   const ready2 = jobs.hasReadyPending(dirs, { sampleLimit: 3 });
   assert(ready2 === true, 'expected ready pending job when only middle is runnable (sampleLimit=3)');
 
+  // Regression: if a pending job is temporarily unreadable (eg Windows/AV lock or partial write),
+  // hasReadyPending should return true so the worker will retry soon instead of idling.
+  fs.rmSync(dirs.pendingDir, { recursive: true, force: true });
+  fs.mkdirSync(dirs.pendingDir, { recursive: true });
+  fs.writeFileSync(path.join(dirs.pendingDir, 'bad.json'), '{ this is not json', 'utf8');
+  const ready3 = jobs.hasReadyPending(dirs, { sampleLimit: 25 });
+  assert(ready3 === true, 'expected ready when a pending job is unreadable');
+
   // cleanup
   try { fs.rmSync(root, { recursive: true, force: true }); } catch {}
 
