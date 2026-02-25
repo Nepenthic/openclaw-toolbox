@@ -353,7 +353,9 @@ function requeueStale(jobDirs, { staleMs = 10 * 60 * 1000, maxAttempts = 3 } = {
 
     try {
       writeJsonAtomic(to, next);
-      fs.unlinkSync(p);
+      // Windows/AV can transiently lock files; retry unlink so stale RUNNING jobs
+      // don't accumulate and jam the queue.
+      unlinkSyncRetry(p, { attempts: 6, delayMs: 25 });
       moved++;
     } catch {
       // Best-effort fallback: if atomic replace fails (common on Windows when the
@@ -362,7 +364,7 @@ function requeueStale(jobDirs, { staleMs = 10 * 60 * 1000, maxAttempts = 3 } = {
       // the queue doesn't jam forever.
       try {
         writeJson(to, next);
-        try { fs.unlinkSync(p); } catch {}
+        try { unlinkSyncRetry(p, { attempts: 6, delayMs: 25 }); } catch {}
         moved++;
       } catch {
         // give up
