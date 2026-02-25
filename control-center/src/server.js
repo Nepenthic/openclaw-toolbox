@@ -608,8 +608,13 @@ function enqueueJob(req, jobSpec, auditExtra = {}) {
   // Best-effort: nudge the worker so UI doesn't sit on "pending" until next poll.
   // Use a short delay to let the job file become "stable" (see claimNext mtime guard).
   try {
-    if (workerKick) setTimeout(() => workerKick(), workerKickDelayMs);
-    else workerKickPending = true;
+    if (workerKick) {
+      const t = setTimeout(() => workerKick(), workerKickDelayMs);
+      // Reliability: don't keep the process alive just because an enqueue happened.
+      try { t.unref?.(); } catch {}
+    } else {
+      workerKickPending = true;
+    }
   } catch {}
   return job;
 }
