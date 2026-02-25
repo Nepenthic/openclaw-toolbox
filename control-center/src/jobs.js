@@ -490,12 +490,17 @@ function hasReadyPending(jobDirs, { sampleLimit = 25 } = {}) {
   } else if (n === 2) {
     idxs.push(0, files.length - 1);
   } else {
-    const step = files.length / n;
+    // Evenly sample across [0, len-1] while always including head+tail.
+    // Use (len-1)/(n-1) so we don't systematically miss the middle when len
+    // isn't divisible by n (common case).
+    const step = (files.length - 1) / (n - 1);
     for (let k = 0; k < n; k++) {
       const i = Math.min(files.length - 1, Math.floor(k * step));
       // de-dupe in case of rounding collisions
       if (idxs.length === 0 || idxs[idxs.length - 1] !== i) idxs.push(i);
     }
+    // If floor rounding caused us to miss the tail, force-include it.
+    if (idxs[idxs.length - 1] !== (files.length - 1)) idxs.push(files.length - 1);
   }
 
   for (const i of idxs) {

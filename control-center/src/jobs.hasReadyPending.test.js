@@ -37,6 +37,20 @@ function writeJob(p, j){
   const ready = jobs.hasReadyPending(dirs, { sampleLimit: 1 });
   assert(ready === true, 'expected ready pending job even when head is delayed (sampleLimit=1)');
 
+  // Regression: if head+tail are delayed but a middle job is runnable, sampling should still find it.
+  // This catches a subtle bug where "evenly spaced" sampling could miss the middle.
+  fs.rmSync(dirs.pendingDir, { recursive: true, force: true });
+  fs.mkdirSync(dirs.pendingDir, { recursive: true });
+
+  writeJob(path.join(dirs.pendingDir, 'a.json'), { id: 'a', status: 'PENDING', createdAt: new Date(now - 4000).toISOString(), notBefore: farFuture });
+  writeJob(path.join(dirs.pendingDir, 'b.json'), { id: 'b', status: 'PENDING', createdAt: new Date(now - 3000).toISOString(), notBefore: farFuture });
+  writeJob(path.join(dirs.pendingDir, 'c.json'), { id: 'c', status: 'PENDING', createdAt: new Date(now - 2000).toISOString() });
+  writeJob(path.join(dirs.pendingDir, 'd.json'), { id: 'd', status: 'PENDING', createdAt: new Date(now - 1000).toISOString(), notBefore: farFuture });
+  writeJob(path.join(dirs.pendingDir, 'e.json'), { id: 'e', status: 'PENDING', createdAt: new Date(now).toISOString(), notBefore: farFuture });
+
+  const ready2 = jobs.hasReadyPending(dirs, { sampleLimit: 3 });
+  assert(ready2 === true, 'expected ready pending job when only middle is runnable (sampleLimit=3)');
+
   // cleanup
   try { fs.rmSync(root, { recursive: true, force: true }); } catch {}
 
