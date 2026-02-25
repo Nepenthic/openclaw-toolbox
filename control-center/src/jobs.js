@@ -259,7 +259,7 @@ function claimNext(jobDirs){
         };
         try { writeJsonAtomic(failedPath, rec); } catch { try { writeJson(failedPath, rec); } catch {} }
       } catch {}
-      try { fs.unlinkSync(to); } catch {}
+      try { unlinkSyncRetry(to, { attempts: 6, delayMs: 25 }); } catch {}
       continue;
     }
 
