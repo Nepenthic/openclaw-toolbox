@@ -483,6 +483,15 @@ app.get('/api/audit/tail', async (req, reply) => {
   reply.send({ ok: true, items });
 });
 
+// Job-queue audit log (enqueue/claim/finish at the job layer).
+app.get('/api/jobs/audit/tail', async (req, reply) => {
+  if (!requireSession(req, reply)) return;
+  const q = req.query || {};
+  const limit = Math.max(1, Math.min(1000, Number(q.limit || 200)));
+  const items = tailJsonl(jobDirs.auditLogPath, { maxLines: limit });
+  reply.send({ ok: true, items });
+});
+
 // --- Unreal jobs (queued for worker) ---
 app.get('/api/jobs', async (req, reply) => {
   const q = req.query || {};
