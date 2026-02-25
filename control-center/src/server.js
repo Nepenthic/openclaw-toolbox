@@ -1355,7 +1355,9 @@ function startWorkerLoop() {
             readyPendingHint = true;
             rerunRequested = true;
             // Avoid a tight setImmediate loop on transient Windows/AV contention.
-            rerunDelayMs = Math.max(rerunDelayMs, 100);
+            // If a job is present but we couldn’t claim anything this tick, back off a bit
+            // to reduce disk churn while still being responsive.
+            rerunDelayMs = Math.max(rerunDelayMs, 500);
           }
         } catch {
           // ignore
