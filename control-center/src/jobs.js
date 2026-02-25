@@ -468,10 +468,19 @@ function hasReadyPending(jobDirs, { sampleLimit = 25 } = {}) {
   // IMPORTANT: Don't only sample the oldest N jobs.
   // If the head of the queue is all delayed (notBefore), but newer jobs are runnable,
   // sampling only from the front can incorrectly return false and let the worker idle.
-  const n = Math.min(sampleLimit, files.length);
+  // Sampling strategy:
+  // - We want to avoid reading *every* pending job when there are thousands.
+  // - But sampling only the oldest N can miss runnable jobs if the head of the queue is delayed.
+  // - Additionally, if sampleLimit is 1, a naive evenly-spaced sample will only look at index 0.
+  //   That defeats the purpose of sampling across the queue.
+  // So: ensure we sample at least the head + tail when there is more than one item.
+  const effectiveN = (files.length > 1 && sampleLimit < 2) ? 2 : sampleLimit;
+  const n = Math.min(effectiveN, files.length);
   const idxs = [];
   if (files.length <= n) {
     for (let i = 0; i < files.length; i++) idxs.push(i);
+  } else if (n === 2) {
+    idxs.push(0, files.length - 1);
   } else {
     const step = files.length / n;
     for (let k = 0; k < n; k++) {
