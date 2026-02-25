@@ -214,19 +214,40 @@ app.register(cookie, {
 });
 
 // --- Auth ---
+const SESSION_MAX_AGE_MS = 1000 * 60 * 60 * 8; // must match cookie maxAge below
+
 function getSession(req) {
   const s = req.cookies.cc_session;
   if (!s) return null;
   try {
     // cookie plugin signs, but we’ll just use the raw value and keep it simple.
     // v0: store session in-memory as a random id.
-    return sessions.get(s) || null;
+    const rec = sessions.get(s) || null;
+    if (!rec) return null;
+    // Reliability: prune expired sessions so a long-running server doesn't leak memory.
+    if (rec.createdAt && (Date.now() - rec.createdAt) > SESSION_MAX_AGE_MS) {
+      try { sessions.delete(s); } catch {}
+      return null;
+    }
+    return rec;
   } catch {
     return null;
   }
 }
 
 const sessions = new Map(); // sessionId -> { createdAt }
+
+function pruneSessions() {
+  try {
+    const now = Date.now();
+    for (const [sid, rec] of sessions.entries()) {
+      if (!rec || !rec.createdAt) { sessions.delete(sid); continue; }
+      if ((now - rec.createdAt) > SESSION_MAX_AGE_MS) sessions.delete(sid);
+    }
+  } catch {
+    // ignore
+  }
+}
 
 app.post('/api/login', {
   config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
@@ -240,6 +261,7 @@ app.post('/api/login', {
     audit('auth.login', req, { ok: false, error: 'BAD_CREDENTIALS' });
     return reply.code(401).send({ ok: false, error: 'BAD_CREDENTIALS' });
   }
+  pruneSessions();
   const sessionId = randomHex(24);
   sessions.set(sessionId, { createdAt: Date.now() });
   audit('auth.login', req, { ok: true });
@@ -1325,6 +1347,11 @@ async function main() {
   await app.listen({ host: bindHost, port });
   app.log.info({ bindHost, port, allowedHosts: [...allowedHosts] }, 'Control Center listening');
   startWorkerLoop();
+
+  // Reliability: prune expired sessions periodically.
+  const t = setInterval(() => pruneSessions(), Math.min(60 * 60 * 1000, Math.max(60_000, Math.floor(SESSION_MAX_AGE_MS / 2))));
+  try { t.unref?.(); } catch {}
+
 }
 
 main().catch((err) => {
