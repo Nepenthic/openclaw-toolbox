@@ -198,7 +198,7 @@
           <option value="500">500</option>
         </select>
       </label>
-      <input id="auditFilter" placeholder="Filter event/url/error…" size="26" oninput="loadAudit().catch(()=>{})" />
+      <input id="auditFilter" placeholder="Filter event/url/error…" size="26" oninput="applyAuditFilter()" />
       <span class="muted">Requires session (login).</span>
     </div>
     <pre id="auditOut"></pre>
@@ -221,6 +221,10 @@ let auditTimer = null;
 // Cache last jobs payload so typing in the filter box doesn't spam the server.
 let jobsCache = { items: [], summary: null, worker: null, readyPending: null };
 let jobsFilterTimer = null;
+
+// Audit cache: avoid refetching on every keystroke.
+let auditCache = { items: [] }; // items are most-recent-first
+let auditFilterTimer = null;
 
 // Simple "network health" pill: reflects recent fetch success/failure and latency.
 let netLastOkAt = 0;
@@ -526,21 +530,11 @@ async function loadState(){
   document.getElementById('stateOut').textContent = JSON.stringify(r, null, 2);
 }
 
-async function loadAudit(){
-  const limitSel = document.getElementById('auditLimit');
-  const limit = Math.max(1, Math.min(500, Number(limitSel ? limitSel.value : 200)));
-  const r = await j(`/api/audit/tail?limit=${encodeURIComponent(limit)}`);
+function renderAuditFromCache(){
   const el = document.getElementById('auditOut');
   if(!el) return;
 
-  if(!r.ok){
-    el.textContent = JSON.stringify(r, null, 2);
-    return;
-  }
-
-  const items = (r.data && Array.isArray(r.data.items)) ? r.data.items : [];
-  // Most-recent first.
-  items.reverse();
+  const items = (auditCache && Array.isArray(auditCache.items)) ? auditCache.items : [];
 
   const qEl = document.getElementById('auditFilter');
   const q = (qEl ? String(qEl.value || '').trim().toLowerCase() : '');
@@ -562,6 +556,34 @@ async function loadAudit(){
     lines = lines.filter(l => String(l).toLowerCase().includes(q));
   }
   el.textContent = lines.join('\n');
+}
+
+function applyAuditFilter(){
+  if (auditFilterTimer) clearTimeout(auditFilterTimer);
+  auditFilterTimer = setTimeout(() => {
+    auditFilterTimer = null;
+    renderAuditFromCache();
+  }, 200);
+}
+
+async function loadAudit(){
+  const limitSel = document.getElementById('auditLimit');
+  const limit = Math.max(1, Math.min(500, Number(limitSel ? limitSel.value : 200)));
+  const r = await j(`/api/audit/tail?limit=${encodeURIComponent(limit)}`);
+  const el = document.getElementById('auditOut');
+  if(!el) return;
+
+  if(!r.ok){
+    el.textContent = JSON.stringify(r, null, 2);
+    return;
+  }
+
+  const items = (r.data && Array.isArray(r.data.items)) ? r.data.items : [];
+  // Most-recent first.
+  items.reverse();
+
+  auditCache = { items };
+  renderAuditFromCache();
 }
 
 function jobPill(status){
