@@ -522,8 +522,25 @@ app.get('/api/jobs/summary', async (req, reply) => {
       files = files.filter(f => f.endsWith('.json'));
       files.sort((a, b) => a.localeCompare(b));
 
-      const n = Math.min(readyPendingSampleLimit, files.length);
-      for (let i = 0; i < n; i++) {
+      // Sample across the queue (head+tail) so we don't miss an earlier notBefore
+      // when the oldest N jobs are all delayed.
+      const sampleLimit = readyPendingSampleLimit;
+      const effectiveN = (files.length > 1 && sampleLimit < 2) ? 2 : sampleLimit;
+      const n = Math.min(effectiveN, files.length);
+      const idxs = [];
+      if (files.length <= n) {
+        for (let i = 0; i < files.length; i++) idxs.push(i);
+      } else if (n === 2) {
+        idxs.push(0, files.length - 1);
+      } else {
+        const step = files.length / n;
+        for (let k = 0; k < n; k++) {
+          const i = Math.min(files.length - 1, Math.floor(k * step));
+          if (idxs.length === 0 || idxs[idxs.length - 1] !== i) idxs.push(i);
+        }
+      }
+
+      for (const i of idxs) {
         const p = path.join(jobDirs.pendingDir, files[i]);
         // Best-effort: use a plain read here (this endpoint is advisory only).
         // The worker itself already uses read retries when claiming jobs.
