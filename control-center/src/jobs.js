@@ -473,7 +473,8 @@ function requeue(jobDirs, job, { error = null, delayMs = 0 } = {}){
     status: 'PENDING',
     updatedAt: nowIso(),
     requeuedAt: nowIso(),
-    ...(delayMs && delayMs > 0 ? { notBefore: new Date(Date.now() + delayMs).toISOString() } : {}),
+    // If delayMs is not set, clear any previous notBefore so the job becomes runnable again.
+    notBefore: (delayMs && delayMs > 0) ? new Date(Date.now() + delayMs).toISOString() : undefined,
     // Preserve existing result unless we’re adding a hint.
     result: error ? { ok: false, output: null, error: String(error) } : (job.result || null),
   };
@@ -501,7 +502,8 @@ function retryFailed(jobDirs, id, { delayMs = 0 } = {}){
     status: 'PENDING',
     updatedAt: nowIso(),
     retriedAt: nowIso(),
-    ...(delayMs && delayMs > 0 ? { notBefore: new Date(Date.now() + delayMs).toISOString() } : {}),
+    // If delayMs is not set, clear any previous notBefore so the retry is runnable immediately.
+    notBefore: (delayMs && delayMs > 0) ? new Date(Date.now() + delayMs).toISOString() : undefined,
     // Clear terminal markers/result so the worker treats this as fresh.
     finishedAt: undefined,
     startedAt: undefined,
