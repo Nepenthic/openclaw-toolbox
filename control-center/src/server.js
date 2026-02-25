@@ -1331,6 +1331,15 @@ function startWorkerLoop() {
       // Don't keep the process alive just because a debounce timer exists.
       try { watchKickTimer.unref?.(); } catch {}
     });
+
+    // Reliability: fs.watch can error asynchronously (network drives, permission changes,
+    // transient OS watcher failures). If that happens, log it and fall back to polling.
+    pendingWatcher.on('error', (err) => {
+      try { app.log.warn({ err: err?.message || String(err) }, 'fs.watch pendingDir errored; continuing with polling'); } catch {}
+      try { pendingWatcher?.close?.(); } catch {}
+      pendingWatcher = null;
+    });
+
     try { pendingWatcher.unref?.(); } catch {}
   } catch (e) {
     app.log.warn({ err: e?.message || String(e) }, 'fs.watch pendingDir failed; falling back to polling only');
