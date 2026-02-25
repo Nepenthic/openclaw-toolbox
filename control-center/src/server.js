@@ -1341,9 +1341,6 @@ function startWorkerLoop() {
   // Expose a best-effort "kick" for API handlers.
   workerKick = () => tick({ forced: true }).catch((e) => app.log.error(e, 'Worker tick error'));
 
-  // Kick once immediately so newly-started workers don't wait a full poll interval.
-  workerKick();
-
   // Bonus reliability/latency improvement: kick the worker as soon as a new job file lands.
   // Debounce to avoid a storm of kicks on Windows (rename/write patterns can emit multiple events).
   // IMPORTANT: keep a reference to the FSWatcher; otherwise it can be GC'd and stop firing.
@@ -1383,6 +1380,10 @@ function startWorkerLoop() {
   };
 
   attachPendingWatcher();
+
+  // Kick once immediately so newly-started workers don't wait a full poll interval.
+  // (Do this after watcher setup so the first forced tick can (re)attach reliably.)
+  workerKick();
 
   const interval = setInterval(() => {
     tick({ forced: false }).catch((e) => app.log.error(e, 'Worker tick error'));
