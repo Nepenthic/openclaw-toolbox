@@ -1405,7 +1405,7 @@ function startWorkerLoop() {
   // Add a tiny cushion to reduce contention on busy disks/AV.
   const watchDebounceMs = Math.max(200, workerKickDelayMs, jobClaimStabilityMs + 50);
 
-  const attachPendingWatcher = () => {
+  function attachPendingWatcher() {
     if (pendingWatcher) return true;
     try {
       pendingWatcher = fs.watch(jobDirs.pendingDir, { persistent: true }, () => {
@@ -1440,7 +1440,7 @@ function startWorkerLoop() {
       pendingWatcher = null;
       return false;
     }
-  };
+  }
 
   attachPendingWatcher();
 
