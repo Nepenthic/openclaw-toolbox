@@ -1521,9 +1521,15 @@ function startWorkerLoop() {
 
   attachPendingWatcher();
 
-  // Kick once immediately so newly-started workers don't wait a full poll interval.
-  // (Do this after watcher setup so the first forced tick can (re)attach reliably.)
-  workerKick();
+  // Kick shortly after startup so newly-started workers don't wait a full poll interval.
+  // Delay aligns with enqueue stability window (mtime guard) so we don't immediately
+  // wake up "too early" and skip freshly-written jobs.
+  try {
+    const t0 = setTimeout(() => workerKick(), workerKickDelayMs);
+    t0.unref?.();
+  } catch {
+    workerKick();
+  }
 
   const interval = setInterval(() => {
     tick({ forced: false }).catch((e) => app.log.error(e, 'Worker tick error'));
