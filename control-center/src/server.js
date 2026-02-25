@@ -882,10 +882,18 @@ async function nodesRun({ node, command, cwd, env }) {
     const txt = await res.text();
     let json;
     try { json = JSON.parse(txt); } catch { json = { raw: txt }; }
-    return { ok: res.ok, status: res.status, json };
+
+    const r = { ok: res.ok, status: res.status, json };
+    // Minimal audit trail for remote executions (does NOT log gateway token).
+    audit('nodes.run', null, { ok: r.ok, status: r.status, node, cmd0: Array.isArray(command) ? command[0] : null, argc: Array.isArray(command) ? command.length : null });
+    return r;
   } catch (e) {
     const name = e?.name || 'Error';
-    if (name === 'AbortError') return { ok: false, error: 'TIMEOUT', timeoutMs: nodesRunTimeoutMs };
+    if (name === 'AbortError') {
+      audit('nodes.run', null, { ok: false, error: 'TIMEOUT', timeoutMs: nodesRunTimeoutMs, node });
+      return { ok: false, error: 'TIMEOUT', timeoutMs: nodesRunTimeoutMs };
+    }
+    audit('nodes.run', null, { ok: false, error: 'FETCH_FAILED', node, message: e?.message || String(e) });
     return { ok: false, error: 'FETCH_FAILED', message: e?.message || String(e) };
   } finally {
     clearTimeout(t);
