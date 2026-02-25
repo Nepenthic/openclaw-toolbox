@@ -596,6 +596,43 @@ app.get('/api/jobs/:id', async (req, reply) => {
   reply.send({ ok: true, job });
 });
 
+// Minimal audit log tail (append-only lines written by jobs.js).
+// Returns newest-first so UIs can show "latest activity" easily.
+app.get('/api/audit', async (req, reply) => {
+  if (!requireAuth(req, reply)) return;
+
+  const limit = Math.max(1, Math.min(500, Number(req.query?.limit || 200)));
+  const maxBytes = Math.max(1_024, Math.min(2_000_000, Number(req.query?.maxBytes || 250_000)));
+
+  try {
+    const p = jobDirs?.auditLogPath;
+    if (!p || !fs.existsSync(p)) return reply.send({ ok: true, lines: [], entries: [] });
+
+    // Best-effort tail: read last N bytes then split lines.
+    // If the file is smaller than maxBytes, this is the whole file.
+    const st = fs.statSync(p);
+    const start = Math.max(0, Number(st.size || 0) - maxBytes);
+    const fd = fs.openSync(p, 'r');
+    try {
+      const buf = Buffer.alloc(Number(st.size || 0) - start);
+      fs.readSync(fd, buf, 0, buf.length, start);
+      const txt = buf.toString('utf8');
+      let lines = txt.split(/\r?\n/).filter(Boolean);
+      // Keep last N lines and reverse (newest-first)
+      lines = lines.slice(-limit).reverse();
+      const entries = lines.map((l) => {
+        try { return JSON.parse(l); } catch { return { ts: null, raw: l }; }
+      });
+      return reply.send({ ok: true, lines, entries });
+    } finally {
+      try { fs.closeSync(fd); } catch {}
+    }
+  } catch (e) {
+    audit('audit.tail', req, { ok: false, error: e?.message || String(e) });
+    return reply.code(500).send({ ok: false, error: 'AUDIT_TAIL_FAILED' });
+  }
+});
+
 function enqueueJob(req, jobSpec, auditExtra = {}) {
   const spec = {
     ...jobSpec,
