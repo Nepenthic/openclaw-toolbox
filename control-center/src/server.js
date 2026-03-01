@@ -1537,11 +1537,24 @@ function startWorkerLoop() {
   attachPendingWatcher();
 
   // Kick shortly after startup so newly-started workers don't wait a full poll interval.
-  // Delay aligns with enqueue stability window (mtime guard) so we don't immediately
+  // If there is already *ready* pending work, kick immediately for better latency.
+  // Otherwise, delay aligns with enqueue stability window (mtime guard) so we don't
   // wake up "too early" and skip freshly-written jobs.
+  let shouldKickNow = false;
   try {
-    const t0 = setTimeout(() => workerKick(), workerKickDelayMs);
-    t0.unref?.();
+    shouldKickNow = jobs.hasReadyPending(jobDirs, { sampleLimit: readyPendingSampleLimit });
+  } catch {
+    shouldKickNow = false;
+  }
+
+  try {
+    if (shouldKickNow) {
+      const t0 = setImmediate(() => workerKick());
+      t0.unref?.();
+    } else {
+      const t0 = setTimeout(() => workerKick(), workerKickDelayMs);
+      t0.unref?.();
+    }
   } catch {
     workerKick();
   }
