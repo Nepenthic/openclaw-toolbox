@@ -27,6 +27,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\ops\openclaw-doctor-lite.p
 ```
 
 ## Layout
+- `skills/` — OpenClaw skill packages (small, allowlisted command wrappers)
 - `ops/` — health checks + logging helpers
 - `controls/` — remote control pack wrappers
 - `quarantine/` — redaction and scanning workflow
