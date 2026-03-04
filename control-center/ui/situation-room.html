@@ -1432,16 +1432,33 @@
         let demoMode = true;
 
         async function fetchJson(url, opts = {}) {
-            const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...opts });
-            const ct = (res.headers.get('content-type') || '').toLowerCase();
-            let json = null;
+            const timeoutMs = Number(opts.timeoutMs || 0);
+            const controller = (timeoutMs > 0) ? new AbortController() : null;
+            const t = (timeoutMs > 0) ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
             try {
-                if (ct.includes('application/json')) json = await res.json();
-                else json = await res.json();
-            } catch {
-                // ignore
+                const res = await fetch(url, {
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                    signal: controller ? controller.signal : undefined,
+                    ...opts,
+                });
+                const ct = (res.headers.get('content-type') || '').toLowerCase();
+                let json = null;
+                try {
+                    if (ct.includes('application/json')) json = await res.json();
+                    else json = await res.json();
+                } catch {
+                    // ignore
+                }
+                return { ok: res.ok, status: res.status, json };
+            } catch (e) {
+                const msg = String(e && e.name ? e.name : e);
+                const isAbort = (e && (e.name === 'AbortError'));
+                return { ok: false, status: 0, error: isAbort ? 'TIMEOUT' : 'FETCH_FAILED', message: msg, json: null };
+            } finally {
+                if (t) clearTimeout(t);
             }
-            return { ok: res.ok, status: res.status, json };
         }
 
         function bytesToGiB(b){
@@ -1486,11 +1503,11 @@
             // These endpoints require you to be logged into ClawForge (session cookie).
             const t0 = performance.now();
             const [pingR, nodesR, nodesFileR, jobsR, diskR] = await Promise.all([
-                fetchJson('/api/ping'),
-                fetchJson('/api/nodes/live'),
-                fetchJson('/api/nodes'),
-                fetchJson('/api/jobs/summary'),
-                fetchJson('/api/telemetry/disk'),
+                fetchJson('/api/ping', { timeoutMs: 5000 }),
+                fetchJson('/api/nodes/live', { timeoutMs: 4000 }),
+                fetchJson('/api/nodes', { timeoutMs: 5000 }),
+                fetchJson('/api/jobs/summary', { timeoutMs: 5000 }),
+                fetchJson('/api/telemetry/disk', { timeoutMs: 8000 }),
             ]);
             const latencyMs = Math.round(performance.now() - t0);
 
@@ -1542,8 +1559,8 @@
 
             // Pull MSI local + K15 remote telemetry if available.
             const [msiSys, k15Sys] = await Promise.all([
-                fetchJson('/api/telemetry/system'),
-                HOST_METRICS.k15.nodeId ? fetchJson('/api/telemetry/system?node=' + encodeURIComponent(HOST_METRICS.k15.nodeId)) : Promise.resolve({ ok:false, status:0, json:null }),
+                fetchJson('/api/telemetry/system', { timeoutMs: 8000 }),
+                HOST_METRICS.k15.nodeId ? fetchJson('/api/telemetry/system?node=' + encodeURIComponent(HOST_METRICS.k15.nodeId), { timeoutMs: 12000 }) : Promise.resolve({ ok:false, status:0, json:null }),
             ]);
 
             if (msiSys.ok) {
