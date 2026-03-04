@@ -1177,27 +1177,18 @@
     </div>
 
     <script>
+        // Start with neutral placeholders (no misleading demo numbers).
+        // In demo mode we will simulate; in live mode these get overwritten by backend sync.
         const KPIS = [
-            { id: 'gateway', label: 'Gateway Status', value: 'Online', status: 'ok', detail: '192.168.86.21:3080', target: 'SLA: 99.9% uptime', sparkline: [98,99,98,99,99,100,99,100], trend: 'stable', trendValue: '0%' },
-            { id: 'nodes', label: 'Active Nodes', value: '3', status: 'info', detail: '2 Windows, 1 Linux', target: 'Min: 2 required', sparkline: [2,3,2,3,3,3,3,3], trend: 'up', trendValue: '+1' },
-            { id: 'jobs', label: 'Running Jobs', value: '12', status: 'ok', detail: '3 queued, 9 running', target: 'Max: 50 concurrent', sparkline: [8,10,12,9,11,14,10,12], trend: 'up', trendValue: '+4' },
-            { id: 'alerts', label: 'Active Alerts', value: '2', status: 'warn', detail: '1 critical, 1 warning', target: 'Target: 0', sparkline: [0,1,2,1,3,2,1,2], trend: 'up', trendValue: '+1', critical: true }
+            { id: 'gateway', label: 'Gateway Status', value: '—', status: 'info', detail: '', target: 'SLA: 99.9% uptime', sparkline: [0,0,0,0,0,0,0,0], trend: 'stable', trendValue: '—' },
+            { id: 'nodes', label: 'Active Nodes', value: '—', status: 'info', detail: '', target: 'Min: 2 required', sparkline: [0,0,0,0,0,0,0,0], trend: 'stable', trendValue: '—' },
+            { id: 'jobs', label: 'Running Jobs', value: '—', status: 'info', detail: '', target: 'Target: 0 failed', sparkline: [0,0,0,0,0,0,0,0], trend: 'stable', trendValue: '—' },
+            { id: 'alerts', label: 'Active Alerts', value: '—', status: 'info', detail: '', target: 'Target: 0', sparkline: [0,0,0,0,0,0,0,0], trend: 'stable', trendValue: '—' }
         ];
 
-        const NODES = [
-            { id: 'msi', name: 'MSI Workstation', x: 280, y: 120, status: 'online', ip: '192.168.86.45', os: 'Windows 11', jobs: 5 },
-            { id: 'molty', name: 'Molty Server', x: 520, y: 100, status: 'online', ip: '192.168.86.100', os: 'Ubuntu 22.04', jobs: 4 },
-            { id: 'k15', name: 'K15 Desktop', x: 340, y: 220, status: 'warning', ip: '192.168.86.77', os: 'Windows 10', jobs: 3, issue: 'High CPU usage' },
-            { id: 'tokyo', name: 'Tokyo Node', x: 680, y: 160, status: 'online', ip: '192.168.86.201', os: 'CentOS 8', jobs: 2 },
-            { id: 'london', name: 'London Gateway', x: 160, y: 100, status: 'offline', ip: '192.168.86.1', os: 'Debian 11', jobs: 0, issue: 'Unreachable' }
-        ];
+        const NODES = [];
 
-        let incidents = [
-            { id: 1, title: 'Gateway unreachable', severity: 'critical', source: 'Gateway', time: Date.now() - 120000, acked: false, timeline: [{time: Date.now() - 120000, desc: 'Gateway became unreachable'}, {time: Date.now() - 90000, desc: 'Alert triggered'}, {time: Date.now() - 60000, desc: 'Notification sent to on-call'}] },
-            { id: 2, title: 'High latency detected', severity: 'warning', source: 'K15 Node', time: Date.now() - 900000, acked: false, timeline: [{time: Date.now() - 900000, desc: 'Latency exceeded threshold (>200ms)'}, {time: Date.now() - 600000, desc: 'Investigation started'}] },
-            { id: 3, title: 'Node MSI connected', severity: 'info', source: 'MSI Node', time: Date.now() - 3600000, acked: true, timeline: [{time: Date.now() - 3600000, desc: 'Node reconnected'}, {time: Date.now() - 3500000, desc: 'Services restored'}] },
-            { id: 4, title: 'Job completed: build-2847', severity: 'info', source: 'Build System', time: Date.now() - 7200000, acked: true, timeline: [{time: Date.now() - 7200000, desc: 'Build #2847 completed'}, {time: Date.now() - 7100000, desc: 'Artifacts uploaded'}] }
-        ];
+        let incidents = [];
 
         // Live system metrics (filled by ClawForge backend when logged in)
         let HOST_METRICS = {
@@ -1493,12 +1484,15 @@
 
         async function refreshFromBackend() {
             // These endpoints require you to be logged into ClawForge (session cookie).
-            const [nodesR, nodesFileR, jobsR, diskR] = await Promise.all([
+            const t0 = performance.now();
+            const [pingR, nodesR, nodesFileR, jobsR, diskR] = await Promise.all([
+                fetchJson('/api/ping'),
                 fetchJson('/api/nodes/live'),
                 fetchJson('/api/nodes'),
                 fetchJson('/api/jobs/summary'),
                 fetchJson('/api/telemetry/disk'),
             ]);
+            const latencyMs = Math.round(performance.now() - t0);
 
             // Some endpoints return an envelope like {ok, code, json:{...}}.
             // Normalize that shape here so the UI doesn't accidentally treat live data as empty.
@@ -1568,11 +1562,11 @@
             setKpi('gateway', {
                 value: 'Online',
                 status: 'ok',
-                detail: location.host,
+                detail: `${location.host} · ${latencyMs}ms`,
                 target: 'SLA: 99.9% uptime',
                 sparkline: [100,100,99,100,100,99,100,100],
                 trend: 'stable',
-                trendValue: '0%'
+                trendValue: pingR.ok ? 'ok' : 'warn'
             });
 
             setKpi('nodes', {
