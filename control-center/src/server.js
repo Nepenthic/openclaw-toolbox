@@ -440,6 +440,25 @@ app.get('/api/nodes', async (req, reply) => {
 let lastNodesLive = null;
 let lastNodesLiveAt = null;
 
+// Background refresher to keep a warm cache for /api/nodes/live even when the UI isn't polling.
+// This reduces "first request after restart" timeouts.
+async function refreshNodesLiveCache() {
+  try {
+    const r = await runOpenclawJson(['nodes', 'status', '--json'], { timeoutMs: 20000 });
+    if (r && r.ok && r.json && typeof r.json === 'object') {
+      lastNodesLive = r.json;
+      lastNodesLiveAt = Date.now();
+    }
+  } catch {
+    // ignore
+  }
+}
+
+setTimeout(() => {
+  refreshNodesLiveCache();
+  setInterval(refreshNodesLiveCache, 30000).unref?.();
+}, 2000).unref?.();
+
 app.get('/api/nodes/live', async (req, reply) => {
   if (!requireSession(req, reply)) return;
   try {

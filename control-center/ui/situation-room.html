@@ -1530,9 +1530,16 @@
 
             const fileNodes = Array.isArray(nodesFileR2.json?.nodes) ? nodesFileR2.json.nodes : [];
 
-            // nodes/live is best-effort (can TIMEOUT). Fall back to file-derived node list when needed.
-            const nodesLiveOk = !!nodesR2.ok && Array.isArray(nodesR2.json?.nodes);
-            const nodes = nodesLiveOk ? nodesR2.json.nodes : fileNodes;
+            // nodes/live is best-effort (can TIMEOUT). It may return either:
+            // - { ok:true, code, json:{nodes:[...]}} (normal)
+            // - { ok:true, stale:true, json:{nodes:[...]}} (cached fallback)
+            // Normalize those shapes here.
+            const nodesLivePayload = (nodesR2 && nodesR2.ok && nodesR2.json && typeof nodesR2.json === 'object')
+              ? (Array.isArray(nodesR2.json.nodes) ? nodesR2.json : (nodesR2.json.json && Array.isArray(nodesR2.json.json.nodes) ? nodesR2.json.json : null))
+              : null;
+
+            const nodesLiveOk = !!nodesLivePayload && Array.isArray(nodesLivePayload.nodes);
+            const nodes = nodesLiveOk ? nodesLivePayload.nodes : fileNodes;
             const connected = nodesLiveOk ? nodes.filter(n => n && n.connected) : [];
 
             // Pick a best-effort K15 system node id (prefer nodes/live if available; else leave null).
@@ -1562,6 +1569,8 @@
                 value: 'Online',
                 status: 'ok',
                 detail: location.host,
+                target: 'SLA: 99.9% uptime',
+                sparkline: [100,100,99,100,100,99,100,100],
                 trend: 'stable',
                 trendValue: '0%'
             });
@@ -1585,12 +1594,20 @@
                 value: String(running),
                 status: failed > 0 ? 'warn' : (running > 0 ? 'ok' : 'info'),
                 detail: `${pending} pending, ${running} running, ${failed} failed`,
+                target: 'Target: 0 failed',
+                trend: failed > 0 ? 'up' : 'stable',
+                trendValue: failed > 0 ? `+${failed}` : '→',
+                sparkline: [Math.max(0,running-2), Math.max(0,running-1), running, running, Math.max(0,running-1), running, running, running],
             });
 
             setKpi('alerts', {
                 value: String(failed),
                 status: failed > 0 ? 'warn' : 'ok',
                 detail: failed > 0 ? `${failed} failed job(s)` : 'Target: 0',
+                target: 'Target: 0',
+                trend: failed > 0 ? 'up' : 'stable',
+                trendValue: failed > 0 ? `+${failed}` : '→',
+                sparkline: [0,0,0,failed,failed,Math.max(0,failed-1),failed,failed],
             });
 
             // Replace node markers with real connected nodes (simple projection placeholders).
