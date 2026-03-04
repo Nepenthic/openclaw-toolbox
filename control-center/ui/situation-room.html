@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClawForge Situation Room</title>
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg-primary: #0a0e14;
+            --bg-secondary: #111820;
+            --bg-card: #161d27;
+            --bg-card-hover: #1c2632;
+            --border-color: #2a3441;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-yellow: #d29922;
+            --accent-red: #f85149;
+            --accent-purple: #a371f7;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header-left h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .header-left .subtitle {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .last-updated {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .auto-refresh input[type="checkbox"] {
+            accent-color: var(--accent-blue);
+            width: 14px;
+            height: 14px;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            transition: background 0.2s ease;
+        }
+
+        .kpi-card:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .kpi-card .label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .kpi-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .kpi-card .value.status-ok { color: var(--accent-green); }
+        .kpi-card .value.status-warn { color: var(--accent-yellow); }
+        .kpi-card .value.status-error { color: var(--accent-red); }
+        .kpi-card .value.status-info { color: var(--accent-blue); }
+
+        .kpi-card .detail {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .map-section {
+            padding: 20px;
+        }
+
+        .map-placeholder {
+            width: 100%;
+            height: 280px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .map-placeholder svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .incidents-section {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .incidents-list {
+            list-style: none;
+            max-height: 360px;
+            overflow-y: auto;
+        }
+
+        .incident-item {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .incident-item:last-child {
+            border-bottom: none;
+        }
+
+        .incident-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 6px;
+            flex-shrink: 0;
+        }
+
+        .incident-indicator.critical { background: var(--accent-red); box-shadow: 0 0 6px var(--accent-red); }
+        .incident-indicator.warning { background: var(--accent-yellow); }
+        .incident-indicator.info { background: var(--accent-blue); }
+
+        .incident-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .incident-title {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .incident-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .actions-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 16px 18px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 18px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #4c9aed;
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--text-muted);
+        }
+
+        .btn-success {
+            background: var(--accent-green);
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background: #2ea043;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1>ClawForge Situation Room</h1>
+                <p class="subtitle">Worldwide Operations Dashboard</p>
+            </div>
+            <div class="header-right">
+                <label class="auto-refresh">
+                    <input type="checkbox" id="autoRefresh">
+                    Auto-refresh
+                </label>
+                <span class="last-updated">Last updated: <time id="lastUpdated">--:--:--</time></span>
+            </div>
+        </header>
+
+        <section class="kpi-grid">
+            <div class="kpi-card">
+                <div class="label">Gateway</div>
+                <div class="value status-ok">Online</div>
+                <div class="detail">192.168.86.21:3080</div>
+            </div>
+            <div class="kpi-card">
+                <div class="label">Nodes</div>
+                <div class="value status-info">3</div>
+                <div class="detail">2 Windows, 1 Linux</div>
+            </div>
+            <div class="kpi-card">
+                <div class="label">Jobs</div>
+                <div class="value status-ok">12</div>
+                <div class="detail">3 queued, 9 running</div>
+            </div>
+            <div class="kpi-card">
+                <div class="label">Alerts</div>
+                <div class="value status-warn">2</div>
+                <div class="detail">1 critical, 1 warning</div>
+            </div>
+        </section>
+
+        <div class="main-grid">
+            <div class="card">
+                <div class="card-header">Global Node Map</div>
+                <div class="map-section">
+                    <div class="map-placeholder">
+                        <svg viewBox="0 0 800 400" preserveAspectRatio="xMidYMid meet">
+                            <rect width="800" height="400" fill="#111820"/>
+                            <g stroke="#2a3441" stroke-width="1">
+                                <line x1="0" y1="50" x2="800" y2="50"/>
+                                <line x1="0" y1="100" x2="800" y2="100"/>
+                                <line x1="0" y1="150" x2="800" y2="150"/>
+                                <line x1="0" y1="200" x2="800" y2="200"/>
+                                <line x1="0" y1="250" x2="800" y2="250"/>
+                                <line x1="0" y1="300" x2="800" y2="300"/>
+                                <line x1="0" y1="350" x2="800" y2="350"/>
+                                <line x1="100" y1="0" x2="100" y2="400"/>
+                                <line x1="200" y1="0" x2="200" y2="400"/>
+                                <line x1="300" y1="0" x2="300" y2="400"/>
+                                <line x1="400" y1="0" x2="400" y2="400"/>
+                                <line x1="500" y1="0" x2="500" y2="400"/>
+                                <line x1="600" y1="0" x2="600" y2="400"/>
+                                <line x1="700" y1="0" x2="700" y2="400"/>
+                            </g>
+                            <circle cx="280" cy="120" r="18" fill="#3fb950" opacity="0.8">
+                                <animate attributeName="r" values="18;24;18" dur="2s" repeatCount="indefinite"/>
+                            </circle>
+                            <text x="280" y="155" text-anchor="middle" fill="#e6edf3" font-size="11">MSI</text>
+                            <circle cx="520" cy="100" r="14" fill="#58a6ff" opacity="0.8">
+                                <animate attributeName="r" values="14;18;14" dur="2.5s" repeatCount="indefinite"/>
+                            </circle>
+                            <circle cx="340" cy="220" r="16" fill="#3fb950" opacity="0.8">
+                                <animate attributeName="r" values="16;22;16" dur="1.8s" repeatCount="indefinite"/>
+                            </circle>
+                            <text x="340" y="250" text-anchor="middle" fill="#e6edf3" font-size="11">K15</text>
+                            <text x="520" y="130" text-anchor="middle" fill="#e6edf3" font-size="11">Molty</text>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card incidents-section">
+                <div class="card-header">Incidents Feed</div>
+                <ul class="incidents-list">
+                    <li class="incident-item">
+                        <span class="incident-indicator critical"></span>
+                        <div class="incident-content">
+                            <div class="incident-title">Gateway unreachable</div>
+                            <div class="incident-meta">2 min ago • Gateway</div>
+                        </div>
+                    </li>
+                    <li class="incident-item">
+                        <span class="incident-indicator warning"></span>
+                        <div class="incident-content">
+                            <div class="incident-title">High latency detected</div>
+                            <div class="incident-meta">15 min ago • K15 Node</div>
+                        </div>
+                    </li>
+                    <li class="incident-item">
+                        <span class="incident-indicator info"></span>
+                        <div class="incident-content">
+                            <div class="incident-title">Node MSI connected</div>
+                            <div class="incident-meta">1 hr ago • Windows Node</div>
+                        </div>
+                    </li>
+                    <li class="incident-item">
+                        <span class="incident-indicator info"></span>
+                        <div class="incident-content">
+                            <div class="incident-title">Job completed</div>
+                            <div class="incident-meta">2 hr ago • Build #2847</div>
+                        </div>
+                    </li>
+                    <li class="incident-item">
+                        <span class="incident-indicator warning"></span>
+                        <div class="incident-content">
+                            <div class="incident-title">Disk space low</div>
+                            <div class="incident-meta">3 hr ago • Storage Node</div>
+                        </div>
+                    </li>
+                </ul>
+                <div class="actions-bar">
+                    <button class="btn btn-primary" onclick="refreshData()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 4v6h-6M1 20v-6h6"/>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                        </svg>
+                        Refresh
+                    </button>
+                    <button class="btn btn-success" onclick="acknowledge()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        Acknowledge
+                    </button>
+                    <button class="btn btn-secondary" onclick="openClawForge()">
+                        Open ClawForge
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+        const REFRESH_INTERVAL_MS = 30000;
+
+        function updateTimestamp() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { 
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            document.getElementById('lastUpdated').textContent = timeStr;
+        }
+
+        function refreshData() {
+            updateTimestamp();
+        }
+
+        function acknowledge() {
+            const btn = event.target.closest('.btn');
+            btn.textContent = 'Acknowledged';
+            btn.disabled = true;
+            setTimeout(() => {
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Acknowledge';
+                btn.disabled = false;
+            }, 2000);
+        }
+
+        function openClawForge() {
+            window.open('http://192.168.86.21:3080/', '_blank');
+        }
+
+        document.getElementById('autoRefresh').addEventListener('change', function(e) {
+            if (e.target.checked) {
+                autoRefreshInterval = setInterval(updateTimestamp, REFRESH_INTERVAL_MS);
+            } else {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+            }
+        });
+
+        updateTimestamp();
+    </script>
+</body>
+</html>
