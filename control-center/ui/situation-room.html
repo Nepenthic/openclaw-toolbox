@@ -420,6 +420,17 @@
         }
 
         /* Dashboard Grid */
+        .page-error{
+            margin: 12px 0 0;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 176, 32, 0.08);
+            color: var(--text-primary);
+        }
+        .page-error.warning{ border-color: rgba(255,176,32,0.35); }
+        .page-error.error{ background: rgba(255, 60, 60, 0.08); border-color: rgba(255,60,60,0.35); }
+
         .dashboard-grid {
             display: grid;
             grid-template-columns: 1fr 380px;
@@ -1079,6 +1090,7 @@
     </header>
 
     <main class="main-content">
+        <div class="page-error" style="display:none;"></div>
         <section class="kpi-grid" id="kpiGrid"></section>
 
         <section class="host-grid" id="hostGrid"></section>
@@ -1435,8 +1447,9 @@
             const timeoutMs = Number(opts.timeoutMs || 0);
             const { timeoutMs: _ignore, ...fetchOpts } = (opts || {});
 
-            const controller = (timeoutMs > 0) ? new AbortController() : null;
-            const t = (timeoutMs > 0) ? setTimeout(() => controller.abort(), timeoutMs) : null;
+            const canAbort = (typeof AbortController !== 'undefined');
+            const controller = (timeoutMs > 0 && canAbort) ? new AbortController() : null;
+            const t = (timeoutMs > 0 && controller) ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
             try {
                 const res = await fetch(url, {
@@ -1555,14 +1568,16 @@
             const nodes = nodesLiveOk ? nodesLivePayload.nodes : fileNodes;
             const connected = nodesLiveOk ? nodes.filter(n => n && n.connected) : [];
 
-            // Pick a best-effort K15 system node id (prefer nodes/live if available; else leave null).
+            // K15 telemetry should work even without Molty; try to resolve via nodes/live if available.
             const k15Node = (nodesLiveOk ? nodes : []).find(n => String(n.displayName || '').toLowerCase() === 'k15') || (nodesLiveOk ? nodes : []).find(n => String(n.remoteIp || '') === '192.168.86.22') || null;
             HOST_METRICS.k15.nodeId = k15Node?.nodeId || null;
 
             // Pull MSI local + K15 remote telemetry if available.
             const [msiSys, k15Sys] = await Promise.all([
                 fetchJson('/api/telemetry/system', { timeoutMs: 8000 }),
-                HOST_METRICS.k15.nodeId ? fetchJson('/api/telemetry/system?node=' + encodeURIComponent(HOST_METRICS.k15.nodeId), { timeoutMs: 12000 }) : Promise.resolve({ ok:false, status:0, json:null }),
+                HOST_METRICS.k15.nodeId
+                  ? fetchJson('/api/telemetry/system?node=' + encodeURIComponent(HOST_METRICS.k15.nodeId), { timeoutMs: 12000 })
+                  : fetchJson('/api/telemetry/system?nodeDisplayName=K15', { timeoutMs: 12000 }),
             ]);
 
             if (msiSys.ok) {
@@ -1679,21 +1694,33 @@
             return { ok: true };
         }
 
+        function setBanner(text, kind='warning'){
+            const el = document.querySelector('.page-error');
+            if (!el) return;
+            el.style.display = text ? 'block' : 'none';
+            el.textContent = text || '';
+            el.className = 'page-error ' + kind;
+        }
+
         async function refreshData() {
             updateTimestamp();
             try {
                 const r = await refreshFromBackend();
                 if (r.ok) {
+                    setBanner('');
                     showNotification('Synced from ClawForge', 'success');
                     return;
                 }
                 if (r.error === 'UNAUTHORIZED') {
-                    showNotification('Login required to load live data', 'warning');
+                    setBanner('Read-only mode should not require login, but this browser session is unauthorized. Try hard refresh (Ctrl+F5).', 'warning');
+                    showNotification('Unauthorized', 'warning');
                     return;
                 }
-                showNotification('Using demo data (backend unavailable)', 'warning');
-            } catch {
-                showNotification('Using demo data (offline)', 'warning');
+                setBanner('Live sync failed; showing last known values. See Incidents for details.', 'warning');
+                showNotification('Live sync failed', 'warning');
+            } catch (e) {
+                setBanner('Live sync threw an error. Hard refresh (Ctrl+F5).', 'warning');
+                showNotification('Live sync error', 'warning');
             }
         }
 

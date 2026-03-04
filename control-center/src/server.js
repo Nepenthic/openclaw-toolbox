@@ -599,11 +599,20 @@ app.get('/api/telemetry/disk', async (req, reply) => {
 // Basic system telemetry.
 // - Without query param: returns MSI-local CPU/memory/boot time.
 // - With ?node=<nodeId>: attempts to run the same query on that node via nodes.run (requires OPENCLAW_GATEWAY_TOKEN).
+// - With ?nodeDisplayName=K15: resolves nodeId from cached nodes.live (or file list) when possible.
 app.get('/api/telemetry/system', async (req, reply) => {
   if (!allowReadOnlyPublic(req, reply)) return;
 
   const q = req.query || {};
-  const nodeId = String(q.node || '').trim();
+  let nodeId = String(q.node || '').trim();
+  const nodeDisplayName = String(q.nodeDisplayName || '').trim();
+
+  if (!nodeId && nodeDisplayName) {
+    // Try cached live nodes first.
+    const nodes = Array.isArray(lastNodesLive?.nodes) ? lastNodesLive.nodes : [];
+    const hit = nodes.find(n => String(n.displayName || '').toLowerCase() === nodeDisplayName.toLowerCase());
+    if (hit?.nodeId) nodeId = hit.nodeId;
+  }
 
   const parseWmicValue = (txt) => {
     const rec = {};
