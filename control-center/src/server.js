@@ -351,13 +351,22 @@ function runOpenclawJson(args, { timeoutMs = 6000 } = {}) {
     const { spawn } = require('node:child_process');
 
     // Windows-friendly: don’t rely on PATH in service-like contexts.
+    // IMPORTANT: On Windows, spawning a .ps1 directly can throw spawn EFTYPE.
+    // If OPENCLAW_CLI_PATH points to openclaw.ps1, wrap it in powershell.
     const exe = process.env.OPENCLAW_CLI_PATH || 'openclaw';
 
     let out = '';
     let err = '';
     let done = false;
 
-    const p = spawn(exe, args, { windowsHide: true });
+    let spawnExe = exe;
+    let spawnArgs = args;
+    if (typeof exe === 'string' && exe.toLowerCase().endsWith('.ps1')) {
+      spawnExe = 'powershell';
+      spawnArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', exe, ...args];
+    }
+
+    const p = spawn(spawnExe, spawnArgs, { windowsHide: true });
 
     p.on('error', (e) => {
       if (done) return;
