@@ -73,6 +73,8 @@ let secrets = readJson(secretsPath);
 // Minimal audit log (JSONL). Keep it local + append-only.
 // Rotate when it gets too big so a long-running LAN server doesn’t grow without bound.
 const auditPath = path.join(stateDir, 'audit.log');
+// Incidents log (JSONL). Used by Situation Room + webhook ingest.
+const incidentsLogPath = path.join(stateDir, 'incidents.log');
 const auditMaxBytes = Number(process.env.CONTROL_CENTER_AUDIT_MAX_BYTES || (10 * 1024 * 1024)); // 10MB
 const auditMaxFiles = Math.max(1, Math.min(50, Number(process.env.CONTROL_CENTER_AUDIT_MAX_FILES || 5)));
 
