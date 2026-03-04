@@ -40,6 +40,7 @@ Write-Host ("Binding Control Center to http://" + $ip + ":" + $env:CONTROL_CENTE
 Write-Host "Allowed hosts: $env:CONTROL_CENTER_ALLOWED_HOSTS"
 Write-Host "OpenClaw CLI: $env:OPENCLAW_CLI_PATH"
 Write-Host ("Gateway token loaded: " + ($(if ($env:OPENCLAW_GATEWAY_TOKEN) { 'yes' } else { 'no' })))
+Write-Host ("Incidents hook token present: " + ($(if ((Test-Path -LiteralPath (Join-Path $env:USERPROFILE '.openclaw\\control-center\\secrets.json'))) { 'see secrets.json' } else { 'missing secrets.json' })))
 
 Set-Location $PSScriptRoot
 node .\src\server.js

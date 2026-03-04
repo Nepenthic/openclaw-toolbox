@@ -1517,12 +1517,13 @@
         async function refreshFromBackend() {
             // These endpoints require you to be logged into ClawForge (session cookie).
             const t0 = performance.now();
-            const [pingR, nodesR, nodesFileR, jobsR, diskR] = await Promise.all([
+            const [pingR, nodesR, nodesFileR, jobsR, diskR, incR] = await Promise.all([
                 fetchJson('/api/ping', { timeoutMs: 5000 }),
                 fetchJson('/api/nodes/live', { timeoutMs: 4000 }),
                 fetchJson('/api/nodes', { timeoutMs: 5000 }),
                 fetchJson('/api/jobs/summary', { timeoutMs: 5000 }),
                 fetchJson('/api/telemetry/disk', { timeoutMs: 8000 }),
+                fetchJson('/api/incidents?limit=100', { timeoutMs: 2500 }),
             ]);
             const latencyMs = Math.round(performance.now() - t0);
 
@@ -1674,7 +1675,7 @@
 
             // Map incidents -> internal model.
             const now = Date.now();
-            incidents = newInc.map((x, idx) => ({
+            const base = newInc.map((x, idx) => ({
                 id: idx + 1,
                 title: x.title,
                 severity: x.severity,
@@ -1683,6 +1684,20 @@
                 acked: false,
                 timeline: [{ time: now, desc: x.detail || 'Detected' }]
             }));
+
+            const ext = (incR.ok && Array.isArray(incR.json?.items))
+              ? incR.json.items.map((it, i) => ({
+                  id: 1000 + i,
+                  title: it.title,
+                  severity: it.severity,
+                  source: it.source || 'external',
+                  time: Number(it.ts || now),
+                  acked: false,
+                  timeline: [{ time: Number(it.ts || now), desc: it.detail || '' }]
+                }))
+              : [];
+
+            incidents = [...ext.reverse(), ...base];
             selectedIncidentId = incidents[0]?.id || null;
 
             renderKPIs();

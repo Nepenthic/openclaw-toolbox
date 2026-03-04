@@ -547,6 +547,80 @@ app.get('/', async (req, reply) => {
 
 app.get('/api/ping', async () => ({ ok: true, ts: Date.now() }));
 
+function readIncidentsTail(limit = 100) {
+  const max = Math.max(1, Math.min(500, Number(limit || 100)));
+  if (!fs.existsSync(incidentsLogPath)) return [];
+  const lines = fs.readFileSync(incidentsLogPath, 'utf8').split(/\r?\n/).filter(Boolean);
+  const tail = lines.slice(-max);
+  const out = [];
+  for (const line of tail) {
+    try { out.push(JSON.parse(line)); } catch {}
+  }
+  return out;
+}
+
+function appendIncident(evt) {
+  const rec = {
+    id: randomHex(8),
+    ts: Date.now(),
+    ...evt,
+  };
+  fs.appendFileSync(incidentsLogPath, JSON.stringify(rec) + os.EOL, 'utf8');
+  return rec;
+}
+
+function requireHookToken(req, reply) {
+  const want = String(secrets.hookToken || '').trim();
+  if (!want) return false;
+
+  // Reject query tokens (docs pattern).
+  if (req.query && (req.query.token || req.query.auth)) {
+    reply.code(400).send({ ok: false, error: 'QUERY_TOKEN_REJECTED' });
+    return false;
+  }
+
+  const h = req.headers || {};
+  const auth = String(h.authorization || '');
+  const x = String(h['x-openclaw-token'] || h['x-control-center-token'] || '');
+  let got = '';
+  if (auth.toLowerCase().startsWith('bearer ')) got = auth.slice(7).trim();
+  else if (x) got = x.trim();
+
+  if (!timingSafeEqualStr(got, want)) {
+    reply.code(401).send({ ok: false, error: 'BAD_HOOK_TOKEN' });
+    return false;
+  }
+  return true;
+}
+
+// Read-only incidents for Situation Room (works without login when CONTROL_CENTER_READONLY_PUBLIC=1).
+app.get('/api/incidents', async (req, reply) => {
+  if (!allowReadOnlyPublic(req, reply)) return;
+  const q = req.query || {};
+  const limit = Number(q.limit || 100);
+  const items = readIncidentsTail(limit);
+  reply.send({ ok: true, ts: Date.now(), items });
+});
+
+// Webhook-style ingest endpoint (patterned after OpenClaw hooks/webhooks docs).
+// This is intentionally *separate* from session auth so you can feed events from other systems safely.
+app.post('/api/hooks/ingest', async (req, reply) => {
+  if (!requireHookToken(req, reply)) return;
+
+  const b = req.body || {};
+  const title = String(b.title || '').trim();
+  const severity = String(b.severity || 'info').trim().toLowerCase();
+  const source = String(b.source || 'external').trim();
+  const detail = String(b.detail || '').trim();
+
+  if (!title) return reply.code(400).send({ ok: false, error: 'TITLE_REQUIRED' });
+  if (!['info','warning','critical'].includes(severity)) return reply.code(400).send({ ok: false, error: 'BAD_SEVERITY' });
+
+  const rec = appendIncident({ title, severity, source, detail });
+  audit('hooks.ingest', req, { ok: true, severity, source });
+  reply.send({ ok: true, item: rec });
+});
+
 // Basic MSI disk telemetry (local to the gateway host). This avoids needing a gateway token.
 // Returns only aggregate numbers; safe to expose behind session auth.
 app.get('/api/telemetry/disk', async (req, reply) => {
