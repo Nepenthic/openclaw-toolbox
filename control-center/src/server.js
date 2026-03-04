@@ -135,11 +135,18 @@ if (!secrets) {
     createdAt: new Date().toISOString(),
     adminPassword: randomHex(16),
     sessionSecret: randomHex(32),
+    hookToken: randomHex(24),
   };
   writeJson(secretsPath, secrets);
   // NOTE: we print the admin password once so Mike can log in.
   // It is not the gateway token.
   console.log('[control-center] First-run admin password (change later):', secrets.adminPassword);
+}
+
+// Migrate old secrets.json to include hookToken for webhook-style incident ingest.
+if (secrets && !secrets.hookToken) {
+  secrets.hookToken = randomHex(24);
+  try { writeJson(secretsPath, secrets); } catch {}
 }
 
 const app = Fastify({ logger: true, trustProxy: false });
