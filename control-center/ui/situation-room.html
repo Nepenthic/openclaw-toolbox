@@ -1539,6 +1539,7 @@
         ];
 
         const NODES = [];
+        let lastNodesLive = null;
 
         let incidents = [];
 
@@ -1564,6 +1565,16 @@
             if (positive) cls = 'positive';
             else if (negative) cls = 'negative';
             return `<svg class="kpi-sparkline ${cls}" viewBox="0 0 ${width} ${height}"><path class="area" d="${area}"/><path d="${points.join(' L')}"/></svg>`;
+        }
+
+        function escapeHtml(s) {
+            if (s == null) return '';
+            return String(s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
         function clsByPct(p){
@@ -1758,11 +1769,11 @@
                 <div class="incident-item ${selectedIncidentId === incident.id ? 'selected' : ''} ${incident.acked ? 'acked' : ''}" data-id="${incident.id}">
                     <span class="incident-severity ${incident.severity}"></span>
                     <div class="incident-content">
-                        <div class="incident-title">${incident.title}</div>
+                        <div class="incident-title">${escapeHtml(incident.title)}</div>
                         <div class="incident-meta">
                             <span>${formatTime(incident.time)}</span>
                             <span>•</span>
-                            <span>${incident.source}</span>
+                            <span>${escapeHtml(incident.source)}</span>
                             ${incident.acked ? '<span class="incident-ack">✓ Acked</span>' : ''}
                         </div>
                     </div>
@@ -1975,11 +1986,31 @@
               : null;
 
             const nodesLiveOk = !!nodesLivePayload && Array.isArray(nodesLivePayload.nodes);
+            if (!nodesLiveOk && nodesR2?.json) {
+                lastNodesLive = nodesR2.json;
+            }
             const nodes = nodesLiveOk ? nodesLivePayload.nodes : fileNodes;
             const connected = nodesLiveOk ? nodes.filter(n => n && n.connected) : [];
+            const isStale = !nodesLiveOk && lastNodesLive && Array.isArray(lastNodesLive.nodes);
 
-            // K15 telemetry should work even without Molty; try to resolve via nodes/live if available.
-            const k15Node = (nodesLiveOk ? nodes : []).find(n => String(n.displayName || '').toLowerCase() === 'k15') || (nodesLiveOk ? nodes : []).find(n => String(n.remoteIp || '') === '192.168.86.22') || null;
+            const nodesCount = nodesLiveOk ? connected.length : (isStale && lastNodesLive?.nodes ? lastNodesLive.nodes.filter(n => n && n.connected).length : nodes.length);
+            const nodesStatus = nodesLiveOk ? (connected.length > 0 ? 'info' : 'warn') : (isStale ? 'warn' : 'warn');
+            const nodesDetail = nodesLiveOk
+              ? `${connected.length} connected / ${nodes.length} paired`
+              : (isStale
+                  ? `${nodesCount} connected / ${nodes.length} paired (STALE)`
+                  : `${nodes.length} paired (live check failed)`);
+
+            setKpi('nodes', {
+                value: String(nodesCount),
+                status: nodesStatus,
+                detail: nodesDetail,
+                trend: 'stable',
+                trendValue: isStale ? 'STALE' : '→'
+            });
+
+            // K15 telemetry: resolve via displayName 'K15' from nodes list
+            const k15Node = (nodesLiveOk ? nodes : fileNodes).find(n => String(n.displayName || '').toLowerCase() === 'k15');
             HOST_METRICS.k15.nodeId = k15Node?.nodeId || null;
 
             // Pull MSI local + K15 remote telemetry if available.
@@ -2001,27 +2032,6 @@
                 HOST_METRICS.k15.memUsedPct = k15Sys.json?.memUsedPct ?? null;
                 HOST_METRICS.k15.bootTimeRaw = k15Sys.json?.bootTimeRaw ?? null;
             }
-
-            // Gateway KPI: treat "nodes live" success as Online.
-            setKpi('gateway', {
-                value: 'Online',
-                status: 'ok',
-                detail: `${location.host} · ${latencyMs}ms`,
-                target: 'SLA: 99.9% uptime',
-                sparkline: [100,100,99,100,100,99,100,100],
-                trend: 'stable',
-                trendValue: pingR.ok ? 'ok' : 'warn'
-            });
-
-            setKpi('nodes', {
-                value: String(nodesLiveOk ? connected.length : 0),
-                status: nodesLiveOk ? (connected.length > 0 ? 'info' : 'warn') : 'warn',
-                detail: nodesLiveOk
-                  ? `${connected.length} connected / ${nodes.length} paired`
-                  : `0 connected / ${nodes.length} paired (live check timed out)`,
-                trend: 'stable',
-                trendValue: '→'
-            });
 
             const counts = jobsR2.json?.counts || {};
             const pending = Number(counts.pending || 0);
@@ -2246,8 +2256,8 @@
                     <div class="modal-incident-header">
                         <span class="modal-incident-severity" style="background: ${colors[incident.severity]}"></span>
                         <div class="modal-incident-info">
-                            <h3>${incident.title}</h3>
-                            <div class="meta">${formatTime(incident.time)} • ${incident.source}</div>
+                            <h3>${escapeHtml(incident.title)}</h3>
+                            <div class="meta">${formatTime(incident.time)} • ${escapeHtml(incident.source)}</div>
                         </div>
                     </div>
                     <div class="modal-section-title">Details</div>
@@ -2262,7 +2272,7 @@
                         </div>
                         <div class="modal-detail-item">
                             <div class="label">Source</div>
-                            <div class="value">${incident.source}</div>
+                            <div class="value">${escapeHtml(incident.source)}</div>
                         </div>
                         <div class="modal-detail-item">
                             <div class="label">Duration</div>
@@ -2271,7 +2281,7 @@
                     </div>
                     <div class="modal-section-title" style="margin-top: 12px;">Timeline</div>
                     <div class="timeline-event" style="padding-left: 0;">
-                        ${incident.timeline.map(t => `<div class="time">${new Date(t.time).toLocaleTimeString()}</div><div class="desc">${t.desc}</div>`).join('<hr style="border:none;border-top:1px solid var(--border-subtle);margin:8px 0">')}
+                        ${incident.timeline.map(t => `<div class="time">${new Date(t.time).toLocaleTimeString()}</div><div class="desc">${escapeHtml(t.desc)}</div>`).join('<hr style="border:none;border-top:1px solid var(--border-subtle);margin:8px 0">')}
                     </div>
                 </div>
             `;

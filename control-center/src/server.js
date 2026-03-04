@@ -428,11 +428,76 @@ function runOpenclawJson(args, { timeoutMs = 6000 } = {}) {
   });
 }
 
+function isPrivateLanIp(ip) {
+  if (!ip) return false;
+  // RFC 1918 private ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+  // Also allow localhost: 127.0.0.1
+  try {
+    const parts = ip.split('.');
+    if (parts.length !== 4) return false;
+    const [a, b] = [Number(parts[0]), Number(parts[1])];
+    // 10.0.0.0/8
+    if (a === 10) return true;
+    // 172.16.0.0/12
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    // 192.168.0.0/16
+    if (a === 192 && b === 168) return true;
+    // localhost
+    if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+// Very small in-memory rate limiter for read-only public mode.
+// Default: 120 requests / 60s per IP.
+const roRate = {
+  windowMs: Math.max(5000, Math.min(5 * 60_000, Number(process.env.CONTROL_CENTER_READONLY_RATE_WINDOW_MS || 60_000))),
+  max: Math.max(10, Math.min(5000, Number(process.env.CONTROL_CENTER_READONLY_RATE_MAX || 120))),
+  buckets: new Map(),
+};
+
+function roAllow(ip) {
+  const now = Date.now();
+  const b = roRate.buckets.get(ip) || { n: 0, resetAt: now + roRate.windowMs };
+  if (now > b.resetAt) {
+    b.n = 0;
+    b.resetAt = now + roRate.windowMs;
+  }
+  b.n++;
+  roRate.buckets.set(ip, b);
+  return b.n <= roRate.max;
+}
+
 function allowReadOnlyPublic(req, reply) {
   // If enabled, allow *read-only* endpoints without a session cookie.
   // Write/admin endpoints must still call requireSession.
-  if (process.env.CONTROL_CENTER_READONLY_PUBLIC === '1') return true;
-  return requireSession(req, reply);
+  if (process.env.CONTROL_CENTER_READONLY_PUBLIC !== '1') {
+    return requireSession(req, reply);
+  }
+
+  // When public read mode is enabled, still enforce:
+  // 1. allowedHosts/origin check
+  // 2. Private LAN IP restriction
+  // 3. Basic rate limit
+  if (!hostOk(req) || !originOk(req)) {
+    audit('readonly.public.denied', req, { reason: 'HOST_ORIGIN' });
+    return reply.code(403).send({ ok: false, error: 'HOST_ORIGIN_DENIED' });
+  }
+
+  const clientIp = String(req.ip || req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  if (!isPrivateLanIp(clientIp)) {
+    audit('readonly.public.denied', req, { reason: 'NOT_PRIVATE_IP', ip: clientIp });
+    return reply.code(403).send({ ok: false, error: 'PUBLIC_IP_DENIED' });
+  }
+
+  if (!roAllow(clientIp || 'unknown')) {
+    audit('readonly.public.denied', req, { reason: 'RATE_LIMIT', ip: clientIp });
+    return reply.code(429).send({ ok: false, error: 'RATE_LIMIT' });
+  }
+
+  return true;
 }
 
 app.get('/api/openclaw/state', async (req, reply) => {
