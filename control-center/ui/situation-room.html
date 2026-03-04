@@ -1493,8 +1493,9 @@
 
         async function refreshFromBackend() {
             // These endpoints require you to be logged into ClawForge (session cookie).
-            const [nodesR, jobsR, diskR] = await Promise.all([
+            const [nodesR, nodesFileR, jobsR, diskR] = await Promise.all([
                 fetchJson('/api/nodes/live'),
+                fetchJson('/api/nodes'),
                 fetchJson('/api/jobs/summary'),
                 fetchJson('/api/telemetry/disk'),
             ]);
@@ -1509,27 +1510,33 @@
                 return r;
             };
             const nodesR2 = unwrap(nodesR);
+            const nodesFileR2 = unwrap(nodesFileR);
             const jobsR2 = unwrap(jobsR);
             const diskR2 = unwrap(diskR);
 
             // If we got a 401, we’re not logged in; stay in demo mode.
-            if ((nodesR2.status === 401) || (jobsR2.status === 401) || (diskR2.status === 401)) {
+            if ((nodesR2.status === 401) || (nodesFileR2.status === 401) || (jobsR2.status === 401) || (diskR2.status === 401)) {
                 demoMode = true;
                 return { ok: false, error: 'UNAUTHORIZED' };
             }
 
-            if (!nodesR2.ok || !jobsR2.ok || !diskR2.ok) {
+            // Jobs + disk are required for live mode; nodes/live is best-effort (it can hang on Windows).
+            if (!jobsR2.ok || !diskR2.ok || !nodesFileR2.ok) {
                 demoMode = true;
-                return { ok: false, error: 'FETCH_FAILED', detail: { nodes: nodesR2.status, jobs: jobsR2.status, disk: diskR2.status } };
+                return { ok: false, error: 'FETCH_FAILED', detail: { nodesLive: nodesR2.status, nodesFile: nodesFileR2.status, jobs: jobsR2.status, disk: diskR2.status } };
             }
 
             demoMode = false;
 
-            const nodes = Array.isArray(nodesR2.json?.nodes) ? nodesR2.json.nodes : [];
-            const connected = nodes.filter(n => n && n.connected);
+            const fileNodes = Array.isArray(nodesFileR2.json?.nodes) ? nodesFileR2.json.nodes : [];
 
-            // Pick a best-effort K15 system node id.
-            const k15Node = nodes.find(n => String(n.displayName || '').toLowerCase() === 'k15') || nodes.find(n => String(n.remoteIp || '') === '192.168.86.22') || null;
+            // nodes/live is best-effort (can TIMEOUT). Fall back to file-derived node list when needed.
+            const nodesLiveOk = !!nodesR2.ok && Array.isArray(nodesR2.json?.nodes);
+            const nodes = nodesLiveOk ? nodesR2.json.nodes : fileNodes;
+            const connected = nodesLiveOk ? nodes.filter(n => n && n.connected) : [];
+
+            // Pick a best-effort K15 system node id (prefer nodes/live if available; else leave null).
+            const k15Node = (nodesLiveOk ? nodes : []).find(n => String(n.displayName || '').toLowerCase() === 'k15') || (nodesLiveOk ? nodes : []).find(n => String(n.remoteIp || '') === '192.168.86.22') || null;
             HOST_METRICS.k15.nodeId = k15Node?.nodeId || null;
 
             // Pull MSI local + K15 remote telemetry if available.
@@ -1560,9 +1567,11 @@
             });
 
             setKpi('nodes', {
-                value: String(connected.length),
-                status: connected.length > 0 ? 'info' : 'warn',
-                detail: `${connected.length} connected / ${nodes.length} paired`,
+                value: String(nodesLiveOk ? connected.length : 0),
+                status: nodesLiveOk ? (connected.length > 0 ? 'info' : 'warn') : 'warn',
+                detail: nodesLiveOk
+                  ? `${connected.length} connected / ${nodes.length} paired`
+                  : `0 connected / ${nodes.length} paired (live check timed out)`,
                 trend: 'stable',
                 trendValue: '→'
             });
@@ -1609,7 +1618,9 @@
 
             // Incidents: regenerate a small, truthful set.
             const newInc = [];
-            if (connected.length === 0) {
+            if (!nodesLiveOk) {
+                newInc.push({ title: 'Nodes live check timed out', severity: 'warning', source: 'ClawForge', detail: 'Falling back to paired-devices list. Live node connectivity may be delayed.' });
+            } else if (connected.length === 0) {
                 newInc.push({ title: 'No nodes connected', severity: 'critical', source: 'Gateway', detail: 'All paired nodes are currently disconnected.' });
             }
 
