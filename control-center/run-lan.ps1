@@ -11,6 +11,10 @@ $env:CONTROL_CENTER_BIND = $ip
 $env:CONTROL_CENTER_PORT = '3080'
 $env:CONTROL_CENTER_ALLOWED_HOSTS = "localhost,127.0.0.1,$ip"
 
+# Allow read-only pages (Situation Room, read endpoints) to work without login on LAN.
+# Write/admin actions still require login.
+$env:CONTROL_CENTER_READONLY_PUBLIC = '1'
+
 # Ensure the backend can find OpenClaw CLI even when PATH differs.
 $cli = (Get-Command openclaw -ErrorAction Stop).Source
 $env:OPENCLAW_CLI_PATH = $cli

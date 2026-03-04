@@ -419,15 +419,22 @@ function runOpenclawJson(args, { timeoutMs = 6000 } = {}) {
   });
 }
 
+function allowReadOnlyPublic(req, reply) {
+  // If enabled, allow *read-only* endpoints without a session cookie.
+  // Write/admin endpoints must still call requireSession.
+  if (process.env.CONTROL_CENTER_READONLY_PUBLIC === '1') return true;
+  return requireSession(req, reply);
+}
+
 app.get('/api/openclaw/state', async (req, reply) => {
-  if (!requireSession(req, reply)) return;
+  if (!allowReadOnlyPublic(req, reply)) return;
   const paired = readJson(path.join(openclawStateDir, 'devices', 'paired.json'), {});
   const pending = readJson(path.join(openclawStateDir, 'devices', 'pending.json'), {});
   reply.send({ ok: true, stateDir: openclawStateDir, devices: { pendingCount: Object.keys(pending).length, pairedCount: Object.keys(paired).length } });
 });
 
 app.get('/api/nodes', async (req, reply) => {
-  if (!requireSession(req, reply)) return;
+  if (!allowReadOnlyPublic(req, reply)) return;
   // Cheap last-known from paired devices.
   const paired = readJson(path.join(openclawStateDir, 'devices', 'paired.json'), {});
   const nodes = Object.values(paired)
@@ -456,14 +463,15 @@ async function refreshNodesLiveCache() {
 
 setTimeout(() => {
   refreshNodesLiveCache();
-  setInterval(refreshNodesLiveCache, 30000).unref?.();
+  setInterval(refreshNodesLiveCache, 15000).unref?.();
 }, 2000).unref?.();
 
 app.get('/api/nodes/live', async (req, reply) => {
-  if (!requireSession(req, reply)) return;
+  if (!allowReadOnlyPublic(req, reply)) return;
   try {
-    // nodes.status can occasionally take >6s on Windows; allow a bit more time.
-    const r = await runOpenclawJson(['nodes', 'status', '--json'], { timeoutMs: 15000 });
+    // nodes.status can occasionally hang on Windows; allow a bit more time.
+    // We keep a warm cache in the background, so this can be higher without freezing the UI.
+    const r = await runOpenclawJson(['nodes', 'status', '--json'], { timeoutMs: 30000 });
 
     // On success, cache the inner JSON (if present).
     if (r && r.ok && r.json && typeof r.json === 'object') {
@@ -474,6 +482,12 @@ app.get('/api/nodes/live', async (req, reply) => {
     // If we timed out but have cached data, return it as stale.
     if (r && !r.ok && r.error === 'TIMEOUT' && lastNodesLive) {
       return reply.send({ ok: true, stale: true, cachedAt: lastNodesLiveAt, json: lastNodesLive, error: 'TIMEOUT' });
+    }
+
+    // If CLI returned a non-timeout error but we have cached data, prefer serving stale data
+    // so the UI remains consistent.
+    if (r && !r.ok && lastNodesLive) {
+      return reply.send({ ok: true, stale: true, cachedAt: lastNodesLiveAt, json: lastNodesLive, error: r.error || 'ERR' });
     }
 
     reply.send(r);
@@ -536,7 +550,7 @@ app.get('/api/ping', async () => ({ ok: true, ts: Date.now() }));
 // Basic MSI disk telemetry (local to the gateway host). This avoids needing a gateway token.
 // Returns only aggregate numbers; safe to expose behind session auth.
 app.get('/api/telemetry/disk', async (req, reply) => {
-  if (!requireSession(req, reply)) return;
+  if (!allowReadOnlyPublic(req, reply)) return;
 
   const { spawn } = require('node:child_process');
   const args = ['cmd', '/c', 'wmic logicaldisk get DeviceID,FreeSpace,Size,VolumeName'];
@@ -586,7 +600,7 @@ app.get('/api/telemetry/disk', async (req, reply) => {
 // - Without query param: returns MSI-local CPU/memory/boot time.
 // - With ?node=<nodeId>: attempts to run the same query on that node via nodes.run (requires OPENCLAW_GATEWAY_TOKEN).
 app.get('/api/telemetry/system', async (req, reply) => {
-  if (!requireSession(req, reply)) return;
+  if (!allowReadOnlyPublic(req, reply)) return;
 
   const q = req.query || {};
   const nodeId = String(q.node || '').trim();
@@ -674,7 +688,7 @@ app.get('/api/jobs/audit/tail', async (req, reply) => {
 
 // --- Unreal jobs (queued for worker) ---
 app.get('/api/jobs', async (req, reply) => {
-  if (!requireSession(req, reply)) return;
+  if (!allowReadOnlyPublic(req, reply)) return;
   const q = req.query || {};
   const limit = Math.max(1, Math.min(200, Number(q.limit || 50)));
 
@@ -692,7 +706,7 @@ app.get('/api/jobs', async (req, reply) => {
 });
 
 app.get('/api/jobs/summary', async (req, reply) => {
-  if (!requireSession(req, reply)) return;
+  if (!allowReadOnlyPublic(req, reply)) return;
   // Lightweight counts for the UI (avoid listing everything client-side).
   const countJson = (dir) => {
     try {
