@@ -436,12 +436,33 @@ app.get('/api/nodes', async (req, reply) => {
   reply.send({ ok: true, nodes, mode: 'file', note: 'Derived from devices/paired.json (last-known).' });
 });
 
+// Cache last successful nodes status so the UI can degrade gracefully if the CLI hangs.
+let lastNodesLive = null;
+let lastNodesLiveAt = null;
+
 app.get('/api/nodes/live', async (req, reply) => {
   if (!requireSession(req, reply)) return;
   try {
-    const r = await runOpenclawJson(['nodes', 'status', '--json'], { timeoutMs: 6000 });
+    // nodes.status can occasionally take >6s on Windows; allow a bit more time.
+    const r = await runOpenclawJson(['nodes', 'status', '--json'], { timeoutMs: 15000 });
+
+    // On success, cache the inner JSON (if present).
+    if (r && r.ok && r.json && typeof r.json === 'object') {
+      lastNodesLive = r.json;
+      lastNodesLiveAt = Date.now();
+    }
+
+    // If we timed out but have cached data, return it as stale.
+    if (r && !r.ok && r.error === 'TIMEOUT' && lastNodesLive) {
+      return reply.send({ ok: true, stale: true, cachedAt: lastNodesLiveAt, json: lastNodesLive, error: 'TIMEOUT' });
+    }
+
     reply.send(r);
   } catch (e) {
+    // If something blew up but we have cached data, still serve it.
+    if (lastNodesLive) {
+      return reply.send({ ok: true, stale: true, cachedAt: lastNodesLiveAt, json: lastNodesLive, error: 'NODES_LIVE_FAILED', message: e?.message || String(e) });
+    }
     reply.send({ ok: false, error: 'NODES_LIVE_FAILED', message: e?.message || String(e) });
   }
 });
