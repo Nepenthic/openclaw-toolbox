@@ -1342,18 +1342,200 @@
             document.getElementById('lastUpdated').textContent = now.toLocaleTimeString('en-US', { hour12: false });
         }
 
-        function refreshData() {
+        // When served under the ClawForge control-center, we can pull real data from same-origin APIs.
+        // If those APIs are unavailable (e.g. opened as a standalone file), we fall back to demo mode.
+        let demoMode = true;
+
+        async function fetchJson(url, opts = {}) {
+            const res = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...opts });
+            const ct = (res.headers.get('content-type') || '').toLowerCase();
+            let json = null;
+            try {
+                if (ct.includes('application/json')) json = await res.json();
+                else json = await res.json();
+            } catch {
+                // ignore
+            }
+            return { ok: res.ok, status: res.status, json };
+        }
+
+        function bytesToGiB(b){
+            const n = Number(b || 0);
+            return Math.round((n / (1024*1024*1024)) * 10) / 10;
+        }
+
+        function diskIncidentsFrom(disks){
+            const out = [];
+            for(const d of (disks || [])){
+                const pct = Number(d.freePct || 0);
+                const free = bytesToGiB(d.freeBytes);
+                const size = bytesToGiB(d.sizeBytes);
+                if (!d.deviceId || !size) continue;
+
+                if (pct < 10) {
+                    out.push({
+                        title: `Disk critically low (${d.deviceId})`,
+                        severity: 'critical',
+                        source: 'MSI Disk',
+                        detail: `${free} GiB free of ${size} GiB (${pct.toFixed(1)}%)`,
+                    });
+                } else if (pct < 20) {
+                    out.push({
+                        title: `Disk space low (${d.deviceId})`,
+                        severity: 'warning',
+                        source: 'MSI Disk',
+                        detail: `${free} GiB free of ${size} GiB (${pct.toFixed(1)}%)`,
+                    });
+                }
+            }
+            return out;
+        }
+
+        function setKpi(id, patch){
+            const k = KPIS.find(x => x.id === id);
+            if (!k) return;
+            Object.assign(k, patch);
+        }
+
+        async function refreshFromBackend() {
+            // These endpoints require you to be logged into ClawForge (session cookie).
+            const [nodesR, jobsR, diskR] = await Promise.all([
+                fetchJson('/api/nodes/live'),
+                fetchJson('/api/jobs/summary'),
+                fetchJson('/api/telemetry/disk'),
+            ]);
+
+            // If we got a 401, we’re not logged in; stay in demo mode.
+            if ((nodesR.status === 401) || (jobsR.status === 401) || (diskR.status === 401)) {
+                demoMode = true;
+                return { ok: false, error: 'UNAUTHORIZED' };
+            }
+
+            if (!nodesR.ok || !jobsR.ok || !diskR.ok) {
+                demoMode = true;
+                return { ok: false, error: 'FETCH_FAILED', detail: { nodes: nodesR.status, jobs: jobsR.status, disk: diskR.status } };
+            }
+
+            demoMode = false;
+
+            const nodes = Array.isArray(nodesR.json?.nodes) ? nodesR.json.nodes : [];
+            const connected = nodes.filter(n => n && n.connected);
+            const moltyCount = connected.filter(n => String(n.platform || '').toLowerCase() === 'windows').length;
+
+            // Gateway KPI: treat "nodes live" success as Online.
+            setKpi('gateway', {
+                value: 'Online',
+                status: 'ok',
+                detail: location.host,
+                trend: 'stable',
+                trendValue: '0%'
+            });
+
+            setKpi('nodes', {
+                value: String(connected.length),
+                status: connected.length > 0 ? 'info' : 'warn',
+                detail: `${connected.length} connected / ${nodes.length} paired`,
+                trend: 'stable',
+                trendValue: '→'
+            });
+
+            const counts = jobsR.json?.counts || {};
+            const pending = Number(counts.pending || 0);
+            const running = Number(counts.running || 0);
+            const failed = Number(counts.failed || 0);
+
+            setKpi('jobs', {
+                value: String(running),
+                status: failed > 0 ? 'warn' : (running > 0 ? 'ok' : 'info'),
+                detail: `${pending} pending, ${running} running, ${failed} failed`,
+            });
+
+            setKpi('alerts', {
+                value: String(failed),
+                status: failed > 0 ? 'warn' : 'ok',
+                detail: failed > 0 ? `${failed} failed job(s)` : 'Target: 0',
+            });
+
+            // Replace node markers with real connected nodes (simple projection placeholders).
+            // Keep it intentionally “non-geo-accurate” until we wire real geo.
+            NODES.length = 0;
+            const base = [
+                { x: 260, y: 140 },
+                { x: 360, y: 220 },
+                { x: 520, y: 160 },
+                { x: 660, y: 140 },
+                { x: 180, y: 200 },
+            ];
+            connected.slice(0, base.length).forEach((n, i) => {
+                const b = base[i];
+                NODES.push({
+                    id: n.nodeId || `n${i}`,
+                    name: n.displayName || n.nodeId || `Node ${i+1}`,
+                    x: b.x,
+                    y: b.y,
+                    status: n.connected ? 'online' : 'offline',
+                    ip: n.remoteIp || '',
+                    os: n.platform || '',
+                });
+            });
+
+            // Incidents: regenerate a small, truthful set.
+            const newInc = [];
+            if (connected.length === 0) {
+                newInc.push({ title: 'No nodes connected', severity: 'critical', source: 'Gateway', detail: 'All paired nodes are currently disconnected.' });
+            }
+
+            const disks = Array.isArray(diskR.json?.disks) ? diskR.json.disks : [];
+            newInc.push(...diskIncidentsFrom(disks));
+
+            // Map incidents -> internal model.
+            const now = Date.now();
+            incidents = newInc.map((x, idx) => ({
+                id: idx + 1,
+                title: x.title,
+                severity: x.severity,
+                source: x.source,
+                time: now,
+                acked: false,
+                timeline: [{ time: now, desc: x.detail || 'Detected' }]
+            }));
+            selectedIncidentId = incidents[0]?.id || null;
+
+            renderKPIs();
+            renderNodes();
+            renderIncidents();
+            if (selectedIncidentId) selectIncident(selectedIncidentId);
+
+            return { ok: true };
+        }
+
+        async function refreshData() {
             updateTimestamp();
-            simulateNewIncident();
-            showNotification('Data refreshed', 'success');
+            try {
+                const r = await refreshFromBackend();
+                if (r.ok) {
+                    showNotification('Synced from ClawForge', 'success');
+                    return;
+                }
+                if (r.error === 'UNAUTHORIZED') {
+                    showNotification('Login required to load live data', 'warning');
+                    return;
+                }
+                showNotification('Using demo data (backend unavailable)', 'warning');
+            } catch {
+                showNotification('Using demo data (offline)', 'warning');
+            }
         }
 
         function simulateNewIncident() {
+            // Demo-mode only.
             if (!autoRefresh) return;
+            if (!demoMode) return;
+
             const titles = ['Memory usage spike', 'Connection timeout', 'API rate limit', 'Certificate expiring', 'Backup failed'];
             const severities = ['info', 'warning', 'critical'];
             const sources = ['MSI Workstation', 'Molty Server', 'K15 Desktop', 'Storage Node'];
-            
+
             const newIncident = {
                 id: incidents.length + 1,
                 title: titles[Math.floor(Math.random() * titles.length)],
@@ -1363,7 +1545,7 @@
                 acked: false,
                 timeline: [{ time: Date.now(), desc: 'Incident detected' }]
             };
-            
+
             incidents.unshift(newIncident);
             renderIncidents();
             showNotification(`New incident: ${newIncident.title}`, newIncident.severity === 'critical' ? 'error' : 'info');
@@ -1518,7 +1700,9 @@
         function startAutoRefresh() {
             if (refreshTimer) clearInterval(refreshTimer);
             refreshTimer = setInterval(() => {
-                updateTimestamp();
+                // If we're serving under ClawForge and logged in, this will sync real data.
+                // Otherwise it will stay in demo mode and simulate.
+                refreshData();
                 simulateNewIncident();
             }, refreshInterval);
         }
@@ -1534,6 +1718,8 @@
             renderIncidents();
             setupEventListeners();
             updateTimestamp();
+            // Try a live sync once on load; fall back to demo if unavailable.
+            refreshData();
             startAutoRefresh();
         }
 

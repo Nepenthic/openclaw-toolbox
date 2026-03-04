@@ -484,6 +484,55 @@ app.get('/', async (req, reply) => {
 
 app.get('/api/ping', async () => ({ ok: true, ts: Date.now() }));
 
+// Basic MSI disk telemetry (local to the gateway host). This avoids needing a gateway token.
+// Returns only aggregate numbers; safe to expose behind session auth.
+app.get('/api/telemetry/disk', async (req, reply) => {
+  if (!requireSession(req, reply)) return;
+
+  const { spawn } = require('node:child_process');
+  const args = ['cmd', '/c', 'wmic logicaldisk get DeviceID,FreeSpace,Size,VolumeName'];
+
+  const r = await new Promise((resolve) => {
+    const p = spawn(args[0], args.slice(1), { windowsHide: true });
+    let out = '';
+    let err = '';
+    let done = false;
+    const finish = (x) => { if (done) return; done = true; resolve(x); };
+
+    const t = setTimeout(() => {
+      try { p.kill(); } catch {}
+      finish({ ok: false, error: 'TIMEOUT' });
+    }, 8000);
+    try { t.unref?.(); } catch {}
+
+    p.stdout.on('data', d => out += d.toString('utf8'));
+    p.stderr.on('data', d => err += d.toString('utf8'));
+    p.on('exit', (code) => {
+      clearTimeout(t);
+      finish({ ok: code === 0, code, out: out.trim(), err: err.trim() });
+    });
+  });
+
+  if (!r.ok) return reply.code(500).send({ ok: false, error: r.error || 'WMIC_FAILED', detail: r });
+
+  // Parse WMIC fixed-column output best-effort.
+  const lines = String(r.out || '').split(/\r?\n/).map(s => s.trimEnd()).filter(Boolean);
+  const disks = [];
+  for (const line of lines.slice(1)) {
+    // Split by 2+ spaces to preserve VolumeName.
+    const parts = line.trim().split(/\s{2,}/g);
+    if (parts.length < 3) continue;
+    const deviceId = parts[0];
+    const free = Number(parts[1] || 0);
+    const size = Number(parts[2] || 0);
+    const label = parts.slice(3).join(' ').trim();
+    if (!deviceId || !size) continue;
+    disks.push({ deviceId, label: label || null, sizeBytes: size, freeBytes: free, freePct: size ? (free / size) * 100 : null });
+  }
+
+  reply.send({ ok: true, host: os.hostname(), ts: Date.now(), disks });
+});
+
 app.get('/api/audit/tail', async (req, reply) => {
   if (!requireSession(req, reply)) return;
   const q = req.query || {};
