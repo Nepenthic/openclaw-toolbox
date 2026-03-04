@@ -451,7 +451,7 @@ let lastNodesLiveAt = null;
 // This reduces "first request after restart" timeouts.
 async function refreshNodesLiveCache() {
   try {
-    const r = await runOpenclawJson(['nodes', 'status', '--json'], { timeoutMs: 20000 });
+    const r = await runOpenclawJson(['nodes', 'status', '--json', '--timeout', '8000'], { timeoutMs: 15000 });
     if (r && r.ok && r.json && typeof r.json === 'object') {
       lastNodesLive = r.json;
       lastNodesLiveAt = Date.now();
@@ -471,7 +471,7 @@ app.get('/api/nodes/live', async (req, reply) => {
   try {
     // nodes.status can occasionally hang on Windows; allow a bit more time.
     // We keep a warm cache in the background, so this can be higher without freezing the UI.
-    const r = await runOpenclawJson(['nodes', 'status', '--json'], { timeoutMs: 30000 });
+    const r = await runOpenclawJson(['nodes', 'status', '--json', '--timeout', '8000'], { timeoutMs: 15000 });
 
     // On success, cache the inner JSON (if present).
     if (r && r.ok && r.json && typeof r.json === 'object') {
