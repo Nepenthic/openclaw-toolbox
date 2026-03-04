@@ -61,6 +61,11 @@ When making/justifying decisions under uncertainty:
 - **State confidence as a probability/range** (e.g., 60/40; “likely/unlikely” is too fuzzy).
 - **Pre-mortem for high-impact choices:** spend 2 minutes imagining it failed and list 1–3 preventions.
 
+**Scout Check ("Scout mindset" trigger):** If you notice defensiveness / a need to "win" the argument, pause and do a 90‑second scout pass:
+- What evidence would change my mind?
+- What’s the strongest version of the other side?
+- If I’m wrong, what’s the likely failure mode + cost?
+
 ## External vs Internal
 
 **Safe to do freely:**
