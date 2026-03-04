@@ -251,6 +251,170 @@
             font-variant-numeric: tabular-nums;
         }
 
+        /* Health Strip */
+        .health-strip {
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 24px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+            font-size: 0.7rem;
+        }
+
+        .health-strip-label {
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .health-endpoint {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .health-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 0.65rem;
+        }
+
+        .health-status.ok {
+            background: rgba(63,185,80,0.15);
+            color: var(--accent-green);
+        }
+
+        .health-status.stale {
+            background: rgba(210,153,34,0.15);
+            color: var(--accent-yellow);
+        }
+
+        .health-status.timeout {
+            background: rgba(248,81,73,0.15);
+            color: var(--accent-red);
+        }
+
+        .health-status.unknown {
+            background: rgba(139,148,158,0.15);
+            color: var(--text-muted);
+        }
+
+        .health-latency {
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .health-time {
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Severity Chips */
+        .severity-chips {
+            display: flex;
+            gap: 8px;
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+        }
+
+        .severity-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.15s;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .severity-chip.critical {
+            background: rgba(248,81,73,0.1);
+            color: var(--accent-red);
+            border-color: rgba(248,81,73,0.3);
+        }
+
+        .severity-chip.warning {
+            background: rgba(210,153,34,0.1);
+            color: var(--accent-yellow);
+            border-color: rgba(210,153,34,0.3);
+        }
+
+        .severity-chip.info {
+            background: rgba(88,166,255,0.1);
+            color: var(--accent-blue);
+            border-color: rgba(88,166,255,0.3);
+        }
+
+        .severity-chip:hover {
+            transform: translateY(-1px);
+        }
+
+        .severity-chip.active {
+            border-width: 2px;
+        }
+
+        .severity-chip.active.critical {
+            background: rgba(248,81,73,0.25);
+            box-shadow: 0 0 8px rgba(248,81,73,0.3);
+        }
+
+        .severity-chip.active.warning {
+            background: rgba(210,153,34,0.25);
+            box-shadow: 0 0 8px rgba(210,153,34,0.3);
+        }
+
+        .severity-chip.active.info {
+            background: rgba(88,166,255,0.25);
+            box-shadow: 0 0 8px rgba(88,166,255,0.3);
+        }
+
+        .severity-chip .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* Copy Buttons */
+        .copy-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+            margin-left: 8px;
+        }
+
+        .copy-btn:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+            border-color: var(--text-muted);
+        }
+
+        .copy-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
         /* Main Content */
         .main-content {
             padding: 24px;
@@ -638,6 +802,7 @@
 
         .incident-item:hover { background: var(--bg-card-hover); }
         .incident-item.selected { background: rgba(88,166,255,0.1); border-left: 2px solid var(--accent-blue); }
+        .incident-item.acked { opacity: 0.6; }
 
         .incident-severity {
             width: 10px;
@@ -995,7 +1160,44 @@
             opacity: 0.5;
         }
 
-        .empty-state p { font-size: 0.85rem; }
+        .empty-state p { font-size: 0.85rem; margin-bottom: 8px; }
+
+        .empty-state .hint {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            background: var(--bg-tertiary);
+            padding: 12px;
+            border-radius: var(--radius-md);
+            text-align: left;
+            font-family: monospace;
+            margin-top: 12px;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .empty-state .hint code {
+            color: var(--accent-cyan);
+        }
+
+        /* Map Empty State */
+        .map-empty-state {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .map-empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        .map-empty-state p {
+            font-size: 0.85rem;
+        }
 
         /* Notifications */
         .notification {
@@ -1061,16 +1263,6 @@
                 </select>
             </div>
 
-            <div class="control-group">
-                <span class="control-label">Severity</span>
-                <select id="severityFilter">
-                    <option value="all">All</option>
-                    <option value="critical">Critical</option>
-                    <option value="warning">Warning</option>
-                    <option value="info">Info</option>
-                </select>
-            </div>
-
             <div class="toggle-wrapper">
                 <div class="toggle active" id="autoRefreshToggle" title="Auto-refresh (every 30s)"></div>
                 <span class="control-label">Auto</span>
@@ -1089,6 +1281,10 @@
         </div>
     </header>
 
+    <div class="health-strip" id="healthStrip">
+        <span class="health-strip-label">Live Data:</span>
+    </div>
+
     <main class="main-content">
         <div class="page-error" style="display:none;"></div>
         <section class="kpi-grid" id="kpiGrid"></section>
@@ -1104,6 +1300,12 @@
                             <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
                         </svg>
                         Global Infrastructure Map
+                        <button class="copy-btn" id="copyGatewayBtn" title="Copy gateway IP:port">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 <div class="card-body">
@@ -1126,6 +1328,13 @@
                             <g id="nodeMarkers"></g>
                         </svg>
                         <div class="node-tooltip" id="nodeTooltip"></div>
+                        <div class="map-empty-state" id="mapEmptyState" style="display:none;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 6v6l4 2"/>
+                            </svg>
+                            <p>No live nodes</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1144,6 +1353,17 @@
                 <div class="tabs">
                     <button class="tab active" data-tab="open">Open <span class="tab-count" id="openCount">0</span></button>
                     <button class="tab" data-tab="acked">Acknowledged <span class="tab-count" id="ackedCount">0</span></button>
+                </div>
+                <div class="severity-chips" id="severityChips">
+                    <span class="severity-chip critical active" data-severity="critical">
+                        <span class="dot"></span>Critical
+                    </span>
+                    <span class="severity-chip warning active" data-severity="warning">
+                        <span class="dot"></span>Warn
+                    </span>
+                    <span class="severity-chip info active" data-severity="info">
+                        <span class="dot"></span>Info
+                    </span>
                 </div>
                 <div class="incidents-list" id="incidentsList"></div>
                 <div class="timeline-panel" id="timelinePanel" style="display:none;">
@@ -1164,7 +1384,20 @@
                         </svg>
                         Acknowledge <span class="kbd">A</span>
                     </button>
-                    <button class="btn btn-secondary" id="openClawForgeBtn">Open ClawForge</button>
+                    <button class="btn btn-secondary" id="openClawForgeBtn">
+                        ClawForge
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                            <polyline points="15 3 21 3 21 9"/>
+                            <line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                    </button>
+                    <button class="copy-btn" id="copyUrlBtn" title="Copy ClawForge URL">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                        </svg>
+                    </button>
                 </div>
             </div>
         </div>
@@ -1189,6 +1422,113 @@
     </div>
 
     <script>
+        const HEALTH_ENDPOINTS = [
+            { path: '/api/ping', label: 'Ping' },
+            { path: '/api/jobs/summary', label: 'Jobs' },
+            { path: '/api/telemetry/disk', label: 'Disk' },
+            { path: '/api/nodes/live', label: 'Nodes' },
+            { path: '/api/incidents', label: 'Incidents' },
+        ];
+
+        let healthStatus = {};
+        let activeSeverities = { critical: true, warning: true, info: true };
+
+        const STORAGE_KEY = 'clawforge_acked_incidents';
+
+        function getAckedIds() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                return stored ? JSON.parse(stored) : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function saveAckedIds(ids) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+            } catch {
+            }
+        }
+
+        function initHealthStatus() {
+            HEALTH_ENDPOINTS.forEach(ep => {
+                healthStatus[ep.path] = {
+                    status: 'unknown',
+                    latency: null,
+                    lastGood: null
+                };
+            });
+            renderHealthStrip();
+        }
+
+        async function checkEndpointHealth(path, timeoutMs) {
+            const start = performance.now();
+            try {
+                const controller = timeoutMs ? new AbortController() : null;
+                const timer = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : null;
+                
+                const res = await fetch(path, {
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                    signal: controller ? controller.signal : undefined
+                });
+                
+                const latency = Math.round(performance.now() - start);
+                
+                if (timer) clearTimeout(timer);
+                
+                return {
+                    status: res.ok ? 'ok' : 'stale',
+                    latency: latency,
+                    lastGood: res.ok ? new Date() : null
+                };
+            } catch (e) {
+                const isAbort = e && e.name === 'AbortError';
+                return {
+                    status: isAbort ? 'timeout' : 'timeout',
+                    latency: Math.round(performance.now() - start),
+                    lastGood: null
+                };
+            }
+        }
+
+        async function refreshHealthStatus() {
+            const checks = HEALTH_ENDPOINTS.map(async (ep) => {
+                const result = await checkEndpointHealth(ep.path, 5000);
+                healthStatus[ep.path] = result;
+            });
+            await Promise.all(checks);
+            renderHealthStrip();
+        }
+
+        function renderHealthStrip() {
+            const strip = document.getElementById('healthStrip');
+            strip.innerHTML = '<span class="health-strip-label">Live Data:</span>';
+            
+            HEALTH_ENDPOINTS.forEach(ep => {
+                const hs = healthStatus[ep.path];
+                const statusClass = hs.status;
+                const statusText = hs.status === 'ok' ? 'OK' : hs.status === 'stale' ? 'STALE' : hs.status === 'timeout' ? 'TIMEOUT' : '—';
+                const latencyText = hs.latency !== null ? `${hs.latency}ms` : '—';
+                const lastGoodText = hs.lastGood ? hs.lastGood.toLocaleTimeString('en-US', { hour12: false }) : '—';
+                
+                strip.innerHTML += `
+                    <div class="health-endpoint">
+                        <span>${ep.label}</span>
+                        <span class="health-status ${statusClass}">${statusText}</span>
+                        <span class="health-latency">${latencyText}</span>
+                        <span class="health-time">${lastGoodText}</span>
+                    </div>
+                `;
+            });
+        }
+
+        function formatLastGood(date) {
+            if (!date) return 'Never';
+            return date.toLocaleTimeString('en-US', { hour12: false });
+        }
+
         // Start with neutral placeholders (no misleading demo numbers).
         // In demo mode we will simulate; in live mode these get overwritten by backend sync.
         const KPIS = [
@@ -1314,6 +1654,15 @@
 
         function renderNodes() {
             const container = document.getElementById('nodeMarkers');
+            const mapEmptyState = document.getElementById('mapEmptyState');
+            
+            if (NODES.length === 0) {
+                container.innerHTML = '';
+                mapEmptyState.style.display = 'block';
+                return;
+            }
+
+            mapEmptyState.style.display = 'none';
             const colors = { online: '#3fb950', warning: '#d29922', offline: '#f85149' };
             
             container.innerHTML = NODES.map(node => `
@@ -1355,34 +1704,58 @@
             document.getElementById('nodeTooltip').classList.remove('visible');
         }
 
+        function applyPersistentAcks() {
+            const ackedIds = getAckedIds();
+            incidents.forEach(inc => {
+                if (ackedIds.includes(inc.id)) {
+                    inc.acked = true;
+                }
+            });
+        }
+
         function renderIncidents() {
             const list = document.getElementById('incidentsList');
             const filtered = incidents.filter(i => currentTab === 'open' ? !i.acked : i.acked);
             const search = document.getElementById('searchInput').value.toLowerCase();
-            const severity = document.getElementById('severityFilter').value;
             
             const filteredIncidents = filtered.filter(i => {
                 const matchSearch = !search || i.title.toLowerCase().includes(search) || i.source.toLowerCase().includes(search);
-                const matchSeverity = severity === 'all' || i.severity === severity;
+                const matchSeverity = activeSeverities[i.severity];
                 return matchSearch && matchSeverity;
             });
 
             if (filteredIncidents.length === 0) {
-                list.innerHTML = `
-                    <div class="empty-state">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <path d="M9 12l2 2 4-4"/>
-                            <circle cx="12" cy="12" r="10"/>
-                        </svg>
-                        <p>No ${currentTab === 'open' ? 'open' : 'acknowledged'} incidents</p>
-                    </div>
-                `;
+                if (currentTab === 'open' && incidents.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M9 12l2 2 4-4"/>
+                                <circle cx="12" cy="12" r="10"/>
+                            </svg>
+                            <p>No incidents detected</p>
+                            <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px;">Send a test incident to see it appear here:</p>
+                            <div class="hint">
+                                <code>curl -X POST http://${location.host}/api/incidents \<br/>&nbsp;&nbsp;-H "Content-Type: application/json" \<br/>&nbsp;&nbsp;-d '{"title":"Test Incident","severity":"warning","source":"test"}'</code>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M9 12l2 2 4-4"/>
+                                <circle cx="12" cy="12" r="10"/>
+                            </svg>
+                            <p>No ${currentTab === 'open' ? 'open' : 'acknowledged'} incidents</p>
+                        </div>
+                    `;
+                }
                 document.getElementById('ackBtn').disabled = true;
                 return;
             }
 
             list.innerHTML = filteredIncidents.map(incident => `
-                <div class="incident-item ${selectedIncidentId === incident.id ? 'selected' : ''}" data-id="${incident.id}">
+                <div class="incident-item ${selectedIncidentId === incident.id ? 'selected' : ''} ${incident.acked ? 'acked' : ''}" data-id="${incident.id}">
                     <span class="incident-severity ${incident.severity}"></span>
                     <div class="incident-content">
                         <div class="incident-title">${incident.title}</div>
@@ -1422,8 +1795,11 @@
         }
 
         function updateCounts() {
-            document.getElementById('openCount').textContent = incidents.filter(i => !i.acked).length;
-            document.getElementById('ackedCount').textContent = incidents.filter(i => i.acked).length;
+            const ackedIds = getAckedIds();
+            const openFiltered = incidents.filter(i => !i.acked && activeSeverities[i.severity]);
+            const ackedFiltered = incidents.filter(i => i.acked && activeSeverities[i.severity]);
+            document.getElementById('openCount').textContent = openFiltered.length;
+            document.getElementById('ackedCount').textContent = ackedFiltered.length;
         }
 
         function formatTime(ms) {
@@ -1458,6 +1834,7 @@
                     signal: controller ? controller.signal : undefined,
                     ...fetchOpts,
                 });
+
                 const ct = (res.headers.get('content-type') || '').toLowerCase();
                 let json = null;
                 try {
@@ -1527,6 +1904,38 @@
             ]);
             const latencyMs = Math.round(performance.now() - t0);
 
+            // Update health status for each endpoint
+            const endpointResults = [
+                { path: '/api/ping', result: pingR },
+                { path: '/api/jobs/summary', result: jobsR },
+                { path: '/api/telemetry/disk', result: diskR },
+                { path: '/api/nodes/live', result: nodesR },
+                { path: '/api/incidents', result: incR },
+            ];
+            
+            endpointResults.forEach(ep => {
+                if (ep.result.ok) {
+                    healthStatus[ep.path] = {
+                        status: 'ok',
+                        latency: latencyMs,
+                        lastGood: new Date()
+                    };
+                } else if (ep.result.status === 0) {
+                    healthStatus[ep.path] = {
+                        status: 'timeout',
+                        latency: null,
+                        lastGood: healthStatus[ep.path].lastGood
+                    };
+                } else {
+                    healthStatus[ep.path] = {
+                        status: 'stale',
+                        latency: latencyMs,
+                        lastGood: null
+                    };
+                }
+            });
+            renderHealthStrip();
+
             // Some endpoints return an envelope like {ok, code, json:{...}}.
             // Normalize that shape here so the UI doesn't accidentally treat live data as empty.
             const unwrap = (r) => {
@@ -1541,7 +1950,7 @@
             const jobsR2 = unwrap(jobsR);
             const diskR2 = unwrap(diskR);
 
-            // If we got a 401, we’re not logged in; stay in demo mode.
+            // If we got a 401, we're not logged in; stay in demo mode.
             if ((nodesR2.status === 401) || (nodesFileR2.status === 401) || (jobsR2.status === 401) || (diskR2.status === 401)) {
                 demoMode = true;
                 return { ok: false, error: 'UNAUTHORIZED' };
@@ -1640,7 +2049,7 @@
             });
 
             // Replace node markers with real connected nodes (simple projection placeholders).
-            // Keep it intentionally “non-geo-accurate” until we wire real geo.
+            // Keep it intentionally "non-geo-accurate" until we wire real geo.
             NODES.length = 0;
             const base = [
                 { x: 260, y: 140 },
@@ -1675,7 +2084,7 @@
 
             // Map incidents -> internal model.
             const now = Date.now();
-            const base = newInc.map((x, idx) => ({
+            const baseInc = newInc.map((x, idx) => ({
                 id: idx + 1,
                 title: x.title,
                 severity: x.severity,
@@ -1697,7 +2106,11 @@
                 }))
               : [];
 
-            incidents = [...ext.reverse(), ...base];
+            incidents = [...ext.reverse(), ...baseInc];
+            
+            // Apply persistent acks
+            applyPersistentAcks();
+            
             selectedIncidentId = incidents[0]?.id || null;
 
             renderKPIs();
@@ -1766,9 +2179,17 @@
         function acknowledge() {
             if (!selectedIncidentId) return;
             const incident = incidents.find(i => i.id === selectedIncidentId);
-            if (incident) {
+            if (incident && !incident.acked) {
                 incident.acked = true;
                 incident.timeline.unshift({ time: Date.now(), desc: 'Incident acknowledged' });
+                
+                // Save to localStorage
+                const ackedIds = getAckedIds();
+                if (!ackedIds.includes(incident.id)) {
+                    ackedIds.push(incident.id);
+                    saveAckedIds(ackedIds);
+                }
+                
                 renderIncidents();
                 selectIncident(selectedIncidentId);
                 showNotification('Incident acknowledged', 'success');
@@ -1857,6 +2278,14 @@
             document.getElementById('modalOverlay').classList.add('visible');
         }
 
+        function copyToClipboard(text, message) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification(message || 'Copied to clipboard', 'success');
+            }).catch(() => {
+                showNotification('Failed to copy', 'error');
+            });
+        }
+
         function setupEventListeners() {
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.addEventListener('click', () => {
@@ -1865,6 +2294,16 @@
                     currentTab = tab.dataset.tab;
                     selectedIncidentId = null;
                     document.getElementById('timelinePanel').style.display = 'none';
+                    renderIncidents();
+                });
+            });
+
+            // Severity chips
+            document.querySelectorAll('.severity-chip').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    const sev = chip.dataset.severity;
+                    activeSeverities[sev] = !activeSeverities[sev];
+                    chip.classList.toggle('active');
                     renderIncidents();
                 });
             });
@@ -1885,12 +2324,20 @@
             });
 
             document.getElementById('timeRange').addEventListener('change', () => { updateTimestamp(); });
-            document.getElementById('severityFilter').addEventListener('change', renderIncidents);
             document.getElementById('searchInput').addEventListener('input', renderIncidents);
 
             document.getElementById('refreshBtn').addEventListener('click', refreshData);
             document.getElementById('ackBtn').addEventListener('click', acknowledge);
             document.getElementById('openClawForgeBtn').addEventListener('click', () => window.open('http://192.168.86.21:3080/', '_blank'));
+
+            // Copy buttons
+            document.getElementById('copyUrlBtn').addEventListener('click', () => {
+                copyToClipboard('http://192.168.86.21:3080/', 'ClawForge URL copied');
+            });
+            
+            document.getElementById('copyGatewayBtn').addEventListener('click', () => {
+                copyToClipboard(location.host, 'Gateway IP:port copied');
+            });
 
             document.getElementById('modalOverlay').addEventListener('click', function(e) {
                 if (e.target === this) closeModal();
@@ -1925,6 +2372,7 @@
         }
 
         function init() {
+            initHealthStatus();
             renderKPIs();
             renderHosts();
             renderNodes();
