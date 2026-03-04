@@ -266,6 +266,34 @@
             margin-bottom: 24px;
         }
 
+        /* Host grid (MSI + K15) */
+        .host-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin: 0 0 24px;
+        }
+        @media (max-width: 900px) { .host-grid { grid-template-columns: 1fr; } }
+
+        .host-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 16px;
+            box-shadow: var(--shadow-md);
+        }
+        .host-title { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom: 8px; }
+        .host-name { font-weight: 700; letter-spacing: .2px; }
+        .host-meta { color: var(--text-secondary); font-size: 12px; }
+        .host-metrics { display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+        .metric { background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 10px; }
+        .metric .k { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; }
+        .metric .v { font-size: 20px; font-weight: 800; margin-top: 4px; }
+        .metric .s { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
+        .v.ok { color: var(--accent-green); }
+        .v.warn { color: var(--accent-yellow); }
+        .v.bad { color: var(--accent-red); }
+
         @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 600px) { .kpi-grid { grid-template-columns: 1fr; } }
 
@@ -1053,6 +1081,8 @@
     <main class="main-content">
         <section class="kpi-grid" id="kpiGrid"></section>
 
+        <section class="host-grid" id="hostGrid"></section>
+
         <div class="dashboard-grid">
             <div class="card">
                 <div class="card-header">
@@ -1166,9 +1196,14 @@
             { id: 1, title: 'Gateway unreachable', severity: 'critical', source: 'Gateway', time: Date.now() - 120000, acked: false, timeline: [{time: Date.now() - 120000, desc: 'Gateway became unreachable'}, {time: Date.now() - 90000, desc: 'Alert triggered'}, {time: Date.now() - 60000, desc: 'Notification sent to on-call'}] },
             { id: 2, title: 'High latency detected', severity: 'warning', source: 'K15 Node', time: Date.now() - 900000, acked: false, timeline: [{time: Date.now() - 900000, desc: 'Latency exceeded threshold (>200ms)'}, {time: Date.now() - 600000, desc: 'Investigation started'}] },
             { id: 3, title: 'Node MSI connected', severity: 'info', source: 'MSI Node', time: Date.now() - 3600000, acked: true, timeline: [{time: Date.now() - 3600000, desc: 'Node reconnected'}, {time: Date.now() - 3500000, desc: 'Services restored'}] },
-            { id: 4, title: 'Job completed: build-2847', severity: 'info', source: 'Build System', time: Date.now() - 7200000, acked: true, timeline: [{time: Date.now() - 7200000, desc: 'Build #2847 completed'}, {time: Date.now() - 7100000, desc: 'Artifacts uploaded'}] },
-            { id: 5, title: 'Disk space low', severity: 'warning', source: 'Storage Node', time: Date.now() - 10800000, acked: false, timeline: [{time: Date.now() - 10800000, desc: 'Disk usage at 85%'}, {time: Date.now() - 9000000, desc: 'Warning threshold reached'}] }
+            { id: 4, title: 'Job completed: build-2847', severity: 'info', source: 'Build System', time: Date.now() - 7200000, acked: true, timeline: [{time: Date.now() - 7200000, desc: 'Build #2847 completed'}, {time: Date.now() - 7100000, desc: 'Artifacts uploaded'}] }
         ];
+
+        // Live system metrics (filled by ClawForge backend when logged in)
+        let HOST_METRICS = {
+            msi: { name: 'MSI', nodeId: null, cpuLoadPct: null, memUsedPct: null, bootTimeRaw: null },
+            k15: { name: 'K15', nodeId: null, cpuLoadPct: null, memUsedPct: null, bootTimeRaw: null },
+        };
 
         let selectedIncidentId = null;
         let currentTab = 'open';
@@ -1186,6 +1221,65 @@
             if (positive) cls = 'positive';
             else if (negative) cls = 'negative';
             return `<svg class="kpi-sparkline ${cls}" viewBox="0 0 ${width} ${height}"><path class="area" d="${area}"/><path d="${points.join(' L')}"/></svg>`;
+        }
+
+        function clsByPct(p){
+            const x = Number(p);
+            if (!Number.isFinite(x)) return '';
+            if (x >= 95) return 'bad';
+            if (x >= 85) return 'warn';
+            return 'ok';
+        }
+
+        function fmtPct(p){
+            const x = Number(p);
+            if (!Number.isFinite(x)) return '—';
+            return `${Math.round(x)}%`;
+        }
+
+        function parseWmicBoot(raw){
+            // WMIC LastBootUpTime: YYYYMMDDhhmmss.mmmmmmsUUU
+            const s = String(raw || '');
+            const m = s.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/);
+            if (!m) return null;
+            const [_, Y, Mo, D, h, mi, se] = m;
+            return new Date(Number(Y), Number(Mo)-1, Number(D), Number(h), Number(mi), Number(se));
+        }
+
+        function fmtUptime(bootRaw){
+            const d = parseWmicBoot(bootRaw);
+            if (!d) return '—';
+            const ms = Date.now() - d.getTime();
+            const h = Math.floor(ms / 3600000);
+            const m = Math.floor((ms % 3600000) / 60000);
+            if (h < 24) return `${h}h ${m}m`;
+            const days = Math.floor(h / 24);
+            const hh = h % 24;
+            return `${days}d ${hh}h`;
+        }
+
+        function renderHosts(){
+            const grid = document.getElementById('hostGrid');
+            if (!grid) return;
+            const hosts = [HOST_METRICS.msi, HOST_METRICS.k15];
+            grid.innerHTML = hosts.map(h => {
+                return `
+                  <div class="host-card">
+                    <div class="host-title">
+                      <div>
+                        <div class="host-name">${h.name}</div>
+                        <div class="host-meta">${h.nodeId ? 'node: ' + h.nodeId.slice(0,8) + '…' : 'local'}</div>
+                      </div>
+                      <div class="env-pill ${clsByPct(h.cpuLoadPct)==='bad' ? 'warning' : ''}">${Number.isFinite(Number(h.cpuLoadPct)) ? 'LIVE' : '—'}</div>
+                    </div>
+                    <div class="host-metrics">
+                      <div class="metric"><div class="k">CPU</div><div class="v ${clsByPct(h.cpuLoadPct)}">${fmtPct(h.cpuLoadPct)}</div><div class="s">Load</div></div>
+                      <div class="metric"><div class="k">Memory</div><div class="v ${clsByPct(h.memUsedPct)}">${fmtPct(h.memUsedPct)}</div><div class="s">Used</div></div>
+                      <div class="metric"><div class="k">Uptime</div><div class="v">${fmtUptime(h.bootTimeRaw)}</div><div class="s">Since boot</div></div>
+                    </div>
+                  </div>
+                `;
+            }).join('');
         }
 
         function renderKPIs() {
@@ -1420,7 +1514,28 @@
 
             const nodes = Array.isArray(nodesR.json?.nodes) ? nodesR.json.nodes : [];
             const connected = nodes.filter(n => n && n.connected);
-            const moltyCount = connected.filter(n => String(n.platform || '').toLowerCase() === 'windows').length;
+
+            // Pick a best-effort K15 system node id.
+            const k15Node = nodes.find(n => String(n.displayName || '').toLowerCase() === 'k15') || nodes.find(n => String(n.remoteIp || '') === '192.168.86.22') || null;
+            HOST_METRICS.k15.nodeId = k15Node?.nodeId || null;
+
+            // Pull MSI local + K15 remote telemetry if available.
+            const [msiSys, k15Sys] = await Promise.all([
+                fetchJson('/api/telemetry/system'),
+                HOST_METRICS.k15.nodeId ? fetchJson('/api/telemetry/system?node=' + encodeURIComponent(HOST_METRICS.k15.nodeId)) : Promise.resolve({ ok:false, status:0, json:null }),
+            ]);
+
+            if (msiSys.ok) {
+                HOST_METRICS.msi.cpuLoadPct = msiSys.json?.cpuLoadPct ?? null;
+                HOST_METRICS.msi.memUsedPct = msiSys.json?.memUsedPct ?? null;
+                HOST_METRICS.msi.bootTimeRaw = msiSys.json?.bootTimeRaw ?? null;
+                HOST_METRICS.msi.nodeId = null;
+            }
+            if (k15Sys.ok) {
+                HOST_METRICS.k15.cpuLoadPct = k15Sys.json?.cpuLoadPct ?? null;
+                HOST_METRICS.k15.memUsedPct = k15Sys.json?.memUsedPct ?? null;
+                HOST_METRICS.k15.bootTimeRaw = k15Sys.json?.bootTimeRaw ?? null;
+            }
 
             // Gateway KPI: treat "nodes live" success as Online.
             setKpi('gateway', {
@@ -1502,6 +1617,7 @@
             selectedIncidentId = incidents[0]?.id || null;
 
             renderKPIs();
+            renderHosts();
             renderNodes();
             renderIncidents();
             if (selectedIncidentId) selectIncident(selectedIncidentId);
@@ -1714,6 +1830,7 @@
 
         function init() {
             renderKPIs();
+            renderHosts();
             renderNodes();
             renderIncidents();
             setupEventListeners();

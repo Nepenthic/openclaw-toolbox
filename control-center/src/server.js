@@ -533,6 +533,79 @@ app.get('/api/telemetry/disk', async (req, reply) => {
   reply.send({ ok: true, host: os.hostname(), ts: Date.now(), disks });
 });
 
+// Basic system telemetry.
+// - Without query param: returns MSI-local CPU/memory/boot time.
+// - With ?node=<nodeId>: attempts to run the same query on that node via nodes.run (requires OPENCLAW_GATEWAY_TOKEN).
+app.get('/api/telemetry/system', async (req, reply) => {
+  if (!requireSession(req, reply)) return;
+
+  const q = req.query || {};
+  const nodeId = String(q.node || '').trim();
+
+  const parseWmicValue = (txt) => {
+    const rec = {};
+    const lines = String(txt || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    for (const line of lines) {
+      const i = line.indexOf('=');
+      if (i <= 0) continue;
+      const k = line.slice(0, i).trim();
+      const v = line.slice(i + 1).trim();
+      rec[k] = v;
+    }
+    return rec;
+  };
+
+  const cmd = ['cmd','/c',
+    'wmic cpu get LoadPercentage /value && wmic OS get FreePhysicalMemory,TotalVisibleMemorySize,LastBootUpTime /value'
+  ];
+
+  const extractStdout = (x) => {
+    // Gateway nodes.run formats can vary; try common shapes.
+    const j = x?.json;
+    return j?.result?.stdout || j?.stdout || j?.out || j?.raw || '';
+  };
+
+  let out = '';
+  if (nodeId) {
+    const r = await nodesRun({ node: nodeId, command: cmd });
+    if (!r.ok) return reply.code(502).send({ ok: false, error: r.error || 'NODES_RUN_FAILED', detail: r });
+    out = extractStdout(r);
+  } else {
+    const { spawn } = require('node:child_process');
+    const r = await new Promise((resolve) => {
+      const p = spawn(cmd[0], cmd.slice(1), { windowsHide: true });
+      let so = '';
+      let se = '';
+      let done = false;
+      const finish = (x) => { if (done) return; done = true; resolve(x); };
+      const t = setTimeout(() => { try { p.kill(); } catch {} finish({ ok: false, error: 'TIMEOUT' }); }, 8000);
+      try { t.unref?.(); } catch {}
+      p.stdout.on('data', d => so += d.toString('utf8'));
+      p.stderr.on('data', d => se += d.toString('utf8'));
+      p.on('exit', (code) => { clearTimeout(t); finish({ ok: code === 0, code, out: so.trim(), err: se.trim() }); });
+    });
+    if (!r.ok) return reply.code(500).send({ ok: false, error: r.error || 'WMIC_FAILED', detail: r });
+    out = r.out;
+  }
+
+  const rec = parseWmicValue(out);
+  const cpuLoad = Number(rec.LoadPercentage || 0);
+  const freeKb = Number(rec.FreePhysicalMemory || 0);
+  const totalKb = Number(rec.TotalVisibleMemorySize || 0);
+  const usedPct = totalKb ? ((totalKb - freeKb) / totalKb) * 100 : null;
+
+  reply.send({
+    ok: true,
+    host: nodeId ? nodeId : os.hostname(),
+    ts: Date.now(),
+    cpuLoadPct: Number.isFinite(cpuLoad) ? cpuLoad : null,
+    memUsedPct: Number.isFinite(usedPct) ? usedPct : null,
+    memTotalKb: Number.isFinite(totalKb) ? totalKb : null,
+    memFreeKb: Number.isFinite(freeKb) ? freeKb : null,
+    bootTimeRaw: rec.LastBootUpTime || null,
+  });
+});
+
 app.get('/api/audit/tail', async (req, reply) => {
   if (!requireSession(req, reply)) return;
   const q = req.query || {};
