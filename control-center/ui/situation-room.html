@@ -1433,6 +1433,8 @@
 
         async function fetchJson(url, opts = {}) {
             const timeoutMs = Number(opts.timeoutMs || 0);
+            const { timeoutMs: _ignore, ...fetchOpts } = (opts || {});
+
             const controller = (timeoutMs > 0) ? new AbortController() : null;
             const t = (timeoutMs > 0) ? setTimeout(() => controller.abort(), timeoutMs) : null;
 
@@ -1441,7 +1443,7 @@
                     credentials: 'same-origin',
                     cache: 'no-store',
                     signal: controller ? controller.signal : undefined,
-                    ...opts,
+                    ...fetchOpts,
                 });
                 const ct = (res.headers.get('content-type') || '').toLowerCase();
                 let json = null;
