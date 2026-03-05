@@ -1227,6 +1227,77 @@
         .notification.success { border-left: 3px solid var(--accent-green); }
         .notification.error { border-left: 3px solid var(--accent-red); }
         .notification.info { border-left: 3px solid var(--accent-blue); }
+
+        .help-shortcuts {
+            display: grid;
+            gap: 12px;
+        }
+
+        .help-shortcut {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+        }
+
+        .help-shortcut kbd {
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .help-shortcut span {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .operator-notes {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+        }
+
+        .operator-notes-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .operator-notes-saved {
+            font-size: 0.65rem;
+            color: var(--accent-green);
+        }
+
+        .operator-notes textarea {
+            width: 100%;
+            min-height: 60px;
+            padding: 10px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            font-family: inherit;
+            resize: vertical;
+            outline: none;
+        }
+
+        .operator-notes textarea:focus {
+            border-color: var(--accent-blue);
+        }
+
+        .modal-copy-btn {
+            margin-left: auto;
+            padding: 4px 10px;
+            font-size: 0.7rem;
+        }
     </style>
 </head>
 <body>
@@ -1384,6 +1455,14 @@
                         </svg>
                         Acknowledge <span class="kbd">A</span>
                     </button>
+                    <button class="btn btn-secondary" id="exportBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Export
+                    </button>
                     <button class="btn btn-secondary" id="openClawForgeBtn">
                         ClawForge
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1398,6 +1477,13 @@
                             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                         </svg>
                     </button>
+                </div>
+                <div class="operator-notes">
+                    <div class="operator-notes-label">
+                        <span>Operator Notes</span>
+                        <span class="operator-notes-saved" id="notesSavedAt"></span>
+                    </div>
+                    <textarea id="operatorNotes" placeholder="Add notes about current situation..."></textarea>
                 </div>
             </div>
         </div>
@@ -2206,7 +2292,15 @@
             }
         }
 
+        let lastNotification = { message: '', time: 0 };
+
         function showNotification(message, type = 'info') {
+            const now = Date.now();
+            if (now - lastNotification.time < 10000 && lastNotification.message === message) {
+                return;
+            }
+            lastNotification = { message, time: now };
+            
             const notif = document.getElementById('notification');
             document.getElementById('notificationText').textContent = message;
             notif.className = `notification ${type} visible`;
@@ -2259,6 +2353,13 @@
                             <h3>${escapeHtml(incident.title)}</h3>
                             <div class="meta">${formatTime(incident.time)} • ${escapeHtml(incident.source)}</div>
                         </div>
+                        <button class="btn btn-secondary modal-copy-btn" id="copySummaryBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;margin-right:4px">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                            </svg>
+                            Copy Summary
+                        </button>
                     </div>
                     <div class="modal-section-title">Details</div>
                     <div class="modal-detail-grid">
@@ -2285,6 +2386,10 @@
                     </div>
                 </div>
             `;
+            document.getElementById('copySummaryBtn').addEventListener('click', () => {
+                const summary = `${incident.severity.toUpperCase()}: ${incident.title}\nSource: ${incident.source}\nTime: ${new Date(incident.time).toLocaleString()}`;
+                copyToClipboard(summary, 'Summary copied');
+            });
             document.getElementById('modalOverlay').classList.add('visible');
         }
 
@@ -2294,6 +2399,73 @@
             }).catch(() => {
                 showNotification('Failed to copy', 'error');
             });
+        }
+
+        const NOTES_KEY = 'clawforge_operator_notes';
+
+        function loadOperatorNotes() {
+            try {
+                const stored = localStorage.getItem(NOTES_KEY);
+                if (stored) {
+                    const data = JSON.parse(stored);
+                    document.getElementById('operatorNotes').value = data.notes || '';
+                    if (data.savedAt) {
+                        document.getElementById('notesSavedAt').textContent = 'Saved: ' + new Date(data.savedAt).toLocaleTimeString();
+                    }
+                }
+            } catch {}
+        }
+
+        function saveOperatorNotes() {
+            const notes = document.getElementById('operatorNotes').value;
+            const data = { notes, savedAt: Date.now() };
+            try {
+                localStorage.setItem(NOTES_KEY, JSON.stringify(data));
+                document.getElementById('notesSavedAt').textContent = 'Saved: ' + new Date(data.savedAt).toLocaleTimeString();
+            } catch {}
+        }
+
+        function exportIncidents() {
+            const data = JSON.stringify(incidents, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'incidents-' + new Date().toISOString().slice(0,19).replace(/[T:]/g,'-') + '.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showNotification('Incidents exported', 'success');
+        }
+
+        function openHelpModal() {
+            document.getElementById('modalTitle').textContent = 'Keyboard Shortcuts';
+            document.getElementById('modalBody').innerHTML = `
+                <div class="help-shortcuts">
+                    <div class="help-shortcut">
+                        <kbd>?</kbd>
+                        <span>Show this help</span>
+                    </div>
+                    <div class="help-shortcut">
+                        <kbd>R</kbd>
+                        <span>Refresh data</span>
+                    </div>
+                    <div class="help-shortcut">
+                        <kbd>A</kbd>
+                        <span>Acknowledge selected incident</span>
+                    </div>
+                    <div class="help-shortcut">
+                        <kbd>/</kbd>
+                        <span>Focus incident search</span>
+                    </div>
+                    <div class="help-shortcut">
+                        <kbd>Esc</kbd>
+                        <span>Close modal</span>
+                    </div>
+                </div>
+            `;
+            document.getElementById('modalOverlay').classList.add('visible');
         }
 
         function setupEventListeners() {
@@ -2338,6 +2510,8 @@
 
             document.getElementById('refreshBtn').addEventListener('click', refreshData);
             document.getElementById('ackBtn').addEventListener('click', acknowledge);
+            document.getElementById('exportBtn').addEventListener('click', exportIncidents);
+            document.getElementById('operatorNotes').addEventListener('input', saveOperatorNotes);
             document.getElementById('openClawForgeBtn').addEventListener('click', () => window.open('http://192.168.86.21:3080/', '_blank'));
 
             // Copy buttons
@@ -2355,9 +2529,14 @@
             document.getElementById('modalClose').addEventListener('click', closeModal);
 
             document.addEventListener('keydown', (e) => {
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
+                    if (e.key === 'Escape') closeModal();
+                    return;
+                }
                 if (e.key === 'r' || e.key === 'R') refreshData();
                 if (e.key === 'a' || e.key === 'A') acknowledge();
+                if (e.key === '/') { e.preventDefault(); document.getElementById('searchInput').focus(); }
+                if (e.key === '?') openHelpModal();
                 if (e.key === 'Escape') closeModal();
             });
         }
@@ -2388,6 +2567,7 @@
             renderNodes();
             renderIncidents();
             setupEventListeners();
+            loadOperatorNotes();
             updateTimestamp();
             // Try a live sync once on load; fall back to demo if unavailable.
             refreshData();
